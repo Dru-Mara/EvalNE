@@ -1,0 +1,354 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Author: Mara Alexandru Cristian
+# Contact: alexandrucristian.mara@ugent.be
+# Date: 7/09/2018
+
+# This code is an extension of the networkx.link_prediction library where directed graphs are not considered.
+# The extensions to directed networks were done according to the paper: https://surface.syr.edu/etd/355/
+# This code provides implementations of several simple methods commonly used as evaluation in link prediction tasks.
+# All these methods return a similarity score for each pair of input nodes.
+# MultiGraphs and weighted graphs are not supported!
+
+# TODO: Probably should change the raise ValueError by a call to the function treating the directed graph as undir.
+# TODO: the apply_prediction method should probably return a numpy array (like edge_embeddings does) rather than a list.
+
+from __future__ import division
+import networkx as nx
+import numpy as np
+
+
+__all__ = ['common_neighbours',
+           'jaccard_coefficient',
+           'adamic_adar_index',
+           'resource_allocation_index',
+           'preferential_attachment',
+           'random_prediction']
+
+
+def _apply_prediction(G, func, ebunch=None):
+    r"""
+    Applies the given function to each edge in the specified iterable of edges.
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    func : function
+        A function on two inputs, each of which is a node in the graph. Can return anything,
+        but it should return a value representing a prediction of the likelihood of a "link" joining the two nodes.
+    ebunch : iterable, optional
+        An iterable of pairs of nodes. If not specified, all edges in the graph G will be used.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    if ebunch is None:
+        ebunch = list(G.edges)
+    return list(map(lambda (u, v): func(u, v), ebunch))
+
+
+def common_neighbours(G, ebunch=None, neighbourhood='in'):
+    r"""
+    Compute the common neighbours of all node pairs in ebunch.
+    For undirected graphs common neighbours of nodes 'u' and 'v' is defined as:
+    |\Gamma(u) \cap \Gamma(v)|
+    For directed graphs we can consider either the in or the out-neighbourhood:
+    |\Gamma_i(u) \cap \Gamma_i(v)|
+    |\Gamma_o(u) \cap \Gamma_o(v)|
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        Common neighbours will be computed for each pair of nodes given in the iterable. The pairs must
+        be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch is None then all
+        non-existent edges in the graph will be used. Default value is None.
+    neighbourhood : string, optional
+        For directed graphs determines if the in or the out-neighbourhoods of nodes should be used.
+        Default value is 'in'.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    def predict(u, v):
+        return len(set(G[u]) & set(G[v]))
+
+    def predict_in(u, v):
+        su = set(map(lambda (x, y): x, G.in_edges(u)))
+        sv = set(map(lambda (x, y): x, G.in_edges(v)))
+        return len(su & sv)
+
+    def predict_out(u, v):
+        su = set(map(lambda (x, y): y, G.out_edges(u)))
+        sv = set(map(lambda (x, y): y, G.out_edges(v)))
+        return len(su & sv)
+
+    # Select the appropriate function and return the results
+    if G.is_directed():
+        if neighbourhood == 'in':
+            return _apply_prediction(G, predict_in, ebunch)
+        elif neighbourhood == 'out':
+            return _apply_prediction(G, predict_out, ebunch)
+        else:
+            raise ValueError("Unknown parameter value.")
+    return _apply_prediction(G, predict, ebunch)
+
+
+def jaccard_coefficient(G, ebunch=None, neighbourhood='in'):
+    r"""
+    Compute the Jaccard coefficient of all node pairs in ebunch.
+    For undirected graphs Jaccard coefficient of nodes 'u' and 'v' is defined as:
+    |\Gamma_o(u) \cap \Gamma_o(v)| / |\Gamma_o(u) \cup \Gamma_o(v)|
+    For directed graphs we can consider either the in or the out-neighbourhood:
+    |\Gamma_i(u) \cap \Gamma_i(v)| / |\Gamma_i(u) \cup \Gamma_i(v)|
+    |\Gamma_o(u) \cap \Gamma_o(v)| / |\Gamma_o(u) \cup \Gamma_o(v)|
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        Jaccard coefficient will be computed for each pair of nodes given in the iterable. The pairs must
+        be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch is None then all
+        non-existent edges in the graph will be used. Default value is None.
+    neighbourhood : string, optional
+        For directed graphs determines if the in or the out-neighbourhoods of nodes should be used.
+        Default value is 'in'.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    def predict(u, v):
+        union_size = len(set(G[u]) | set(G[v]))
+        if union_size == 0:
+            return 0
+        return len(list(nx.common_neighbors(G, u, v))) / union_size
+
+    def predict_in(u, v):
+        su = set(map(lambda (x, y): x, G.in_edges(u)))
+        sv = set(map(lambda (x, y): x, G.in_edges(v)))
+        union_size = len(su | sv)
+        if union_size == 0:
+            return 0
+        return len(su & sv) / union_size
+
+    def predict_out(u, v):
+        su = set(map(lambda (x, y): y, G.out_edges(u)))
+        sv = set(map(lambda (x, y): y, G.out_edges(v)))
+        union_size = len(su | sv)
+        if union_size == 0:
+            return 0
+        return len(su & sv) / union_size
+
+    # Select the appropriate function and return the results
+    if G.is_directed():
+        if neighbourhood == 'in':
+            return _apply_prediction(G, predict_in, ebunch)
+        elif neighbourhood == 'out':
+            return _apply_prediction(G, predict_out, ebunch)
+        else:
+            raise ValueError("Unknown parameter value.")
+    return _apply_prediction(G, predict, ebunch)
+
+
+def adamic_adar_index(G, ebunch=None, neighbourhood='in'):
+    r"""
+    Compute the Adamic-Adar index of all node pairs in ebunch.
+    For undirected graphs the Adamic-Adar index of nodes 'u' and 'v' is defined as:
+    \sum_{w \in \Gamma(u) \cap \Gamma(v)} \frac{1}{\log |\Gamma(w)|}
+    For directed graphs we can consider either the in or the out-neighbourhood:
+    \sum_{w \in \Gamma_i(u) \cap \Gamma_i(v)} \frac{1}{\log |\Gamma_i(w)|}
+    \sum_{w \in \Gamma_o(u) \cap \Gamma_o(v)} \frac{1}{\log |\Gamma_o(w)|}
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        Adamic-Adar index will be computed for each pair of nodes given in the iterable. The pairs must
+        be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch is None then all
+        non-existent edges in the graph will be used. Default value is None.
+    neighbourhood : string, optional
+        For directed graphs determines if the in or the out-neighbourhoods of nodes should be used.
+        Default value is 'in'.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    def predict(u, v):
+        return sum(1 / np.log(G.degree(w)) for w in nx.common_neighbors(G, u, v))
+
+    def predict_in(u, v):
+        su = set(map(lambda (x, y): x, G.in_edges(u)))
+        sv = set(map(lambda (x, y): x, G.in_edges(v)))
+        inters = su & sv
+        res = 0
+        for w in inters:
+            l = len(G.in_edges(w))
+            if l > 1:
+                res += 1 / np.log(l)
+        return res
+
+    def predict_out(u, v):
+        su = set(map(lambda (x, y): y, G.out_edges(u)))
+        sv = set(map(lambda (x, y): y, G.out_edges(v)))
+        inters = su & sv
+        res = 0
+        for w in inters:
+            l = len(G.out_edges(w))
+            if l > 1:
+                res += 1 / np.log(l)
+        return res
+
+    # Select the appropriate function and return the results
+    if G.is_directed():
+        if neighbourhood == 'in':
+            return _apply_prediction(G, predict_in, ebunch)
+        elif neighbourhood == 'out':
+            return _apply_prediction(G, predict_out, ebunch)
+        else:
+            raise ValueError("Unknown parameter value.")
+    return _apply_prediction(G, predict, ebunch)
+
+
+def resource_allocation_index(G, ebunch=None, neighbourhood='in'):
+    r"""
+    Compute the resource allocation index of all node pairs in ebunch.
+    For undirected graphs the resource allocation index of nodes 'u' and 'v' is defined as:
+    \sum_{w \in \Gamma(u) \cap \Gamma(v)} \frac{1}{|\Gamma(w)|}
+    For directed graphs we can consider either the in or the out-neighbourhood:
+    \sum_{w \in \Gamma_i(u) \cap \Gamma_i(v)} \frac{1}{|\Gamma_i(w)|}
+    \sum_{w \in \Gamma_o(u) \cap \Gamma_o(v)} \frac{1}{|\Gamma_o(w)|}
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        Resource allocation index will be computed for each pair of nodes given in the iterable.
+        The pairs must be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch
+        is None then all non-existent edges in the graph will be used. Default value is None.
+    neighbourhood : string, optional
+        For directed graphs determines if the in or the out-neighbourhoods of nodes should be used.
+        Default value is 'in'.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    def predict(u, v):
+        return sum(1 / G.degree(w) for w in nx.common_neighbors(G, u, v))
+
+    def predict_in(u, v):
+        su = set(map(lambda (x, y): x, G.in_edges(u)))
+        sv = set(map(lambda (x, y): x, G.in_edges(v)))
+        inters = su & sv
+        res = 0
+        for w in inters:
+            l = len(G.in_edges(w))
+            if l > 1:
+                res += 1 / l
+        return res
+
+    def predict_out(u, v):
+        su = set(map(lambda (x, y): y, G.out_edges(u)))
+        sv = set(map(lambda (x, y): y, G.out_edges(v)))
+        inters = su & sv
+        res = 0
+        for w in inters:
+            l = len(G.out_edges(w))
+            if l > 1:
+                res += 1 / l
+        return res
+
+    # Select the appropriate function and return the results
+    if G.is_directed():
+        if neighbourhood == 'in':
+            return _apply_prediction(G, predict_in, ebunch)
+        elif neighbourhood == 'out':
+            return _apply_prediction(G, predict_out, ebunch)
+        else:
+            raise ValueError("Unknown parameter value.")
+    return _apply_prediction(G, predict, ebunch)
+
+
+def preferential_attachment(G, ebunch=None, neighbourhood='in'):
+    r"""
+    Compute the preferential attachment score of all node pairs in ebunch.
+    For undirected graphs the preferential attachment score of nodes 'u' and 'v' is defined as:
+    |\Gamma(u)| |\Gamma(v)|
+    For directed graphs we can consider either the in or the out-neighbourhood:
+    |\Gamma_i(u)| |\Gamma_i(v)|
+    |\Gamma_o(u)| |\Gamma_o(v)|
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        Preferential attachment score will be computed for each pair of nodes given in the iterable.
+        The pairs must be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch
+        is None then all non-existent edges in the graph will be used. Default value is None.
+    neighbourhood : string, optional
+        For directed graphs determines if the in or the out-neighbourhoods of nodes should be used.
+        Default value is 'in'.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    def predict(u, v):
+        return G.degree(u) * G.degree(v)
+
+    def predict_in(u, v):
+        return len(G.in_edges(u)) * len(G.in_edges(v))
+
+    def predict_out(u, v):
+        return len(G.out_edges(u)) * len(G.out_edges(v))
+
+    # Select the appropriate function and return the results
+    if G.is_directed():
+        if neighbourhood == 'in':
+            return _apply_prediction(G, predict_in, ebunch)
+        elif neighbourhood == 'out':
+            return _apply_prediction(G, predict_out, ebunch)
+        else:
+            raise ValueError("Unknown parameter value.")
+    return _apply_prediction(G, predict, ebunch)
+
+
+def random_prediction(G, ebunch=None):
+    r"""
+    Returns a float draws uniformly at random from the interval (0.0, 1.0].
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        A random prediction will be returned for each pair of nodes given in the iterable.
+        The pairs must be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch
+        is None then all non-existent edges in the graph will be used. Default value is None.
+
+    Returns
+    -------
+    sim : list
+        A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+    """
+    def predict(u, v):
+        return np.random.random()
+
+    return _apply_prediction(G, predict, ebunch)
+
