@@ -21,7 +21,7 @@ as well as directly from the web pages of the authors e.g. [CNE](),
 [PRUNE](https://github.com/ntumslab/PRUNE). 
 
 EvalNE also includes the following LP heuristics for both directed and
-undirected networks (in and out node neighbourhoods), that can be used as
+undirected networks (in and out node neighbourhoods), which can be used as
 baselines:
 
 * Random Prediction
@@ -74,24 +74,51 @@ python setup.py install
 
 ### As a command line tool ###
 
-The library takes as input a configuration file. This file allows the user to
-specify the evaluation settings, from the methods and baselines to be evaluated
+The library takes as input an *.ini* configuration file. This file allows the user 
+to specify the evaluation settings, from the methods and baselines to be evaluated
 to the edge embedding methods, parameters to tune or scores to report.
 
 An example `conf.ini` file is provided describing the available options
 for each parameter. This file can be either modified to simulate different
-evaluation settings or used as a template to generate other evaluation settings.
-Once the configuration is set, the evaluation can be run using:   
-```bash
-python evalne ./examples/conf.ini 
-```
-NOTE: In order to run the evaluation using the default `conf.ini` file, the 
-[OpenNE](https://github.com/thunlp/OpenNE) library is required.
+evaluation settings or used as a template to generate other *.ini* files.
 
-Another conf file example provided is `conf_node2vec.ini`. This file simulates the
-experimental section of the paper "Scalable Feature Learning for Networks" by A. 
-Grover and J. Leskovec.
+Another configuration example provided is `conf_node2vec.ini`. This file simulates 
+the link prediction experiments of the paper "Scalable Feature Learning for 
+Networks" by A. Grover and J. Leskovec.
 
+Once the configuration is set, the evaluation can be run as indicated in the next
+subsection.
+
+#### Running the conf examples ####
+
+In order to run the evaluations using the provided `conf.ini` and 
+`conf_node2vec.ini` files, the following steps are necessary: 
+
+1. Download the libraries/methods used in the examples:
+   * [OpenNE](https://github.com/thunlp/OpenNE) 
+   * [PRUNE](https://github.com/ntumslab/PRUNE)
+2. Download the datasets used in the examples:
+   * For `conf.ini`:
+      * [StudentDB](http://adrem.ua.ac.be/smurfig)
+      * [Arxiv GR-QC](https://snap.stanford.edu/data/ca-GrQc.html)
+   * For `conf_node2vec.ini`:
+      * [Facebook](https://snap.stanford.edu/data/egonets-Facebook.html) combined network
+      * [Arxiv Astro-Ph](http://snap.stanford.edu/data/ca-AstroPh.html)
+      * [PPI](http://snap.stanford.edu/node2vec/Homo_sapiens.mat)
+    
+3. Set the correct dataset paths in the INPATHS option of the corresponding *.ini* 
+file. And the correct path for PRUNE under the METHODS_OTHER option. 
+
+4. Run the evaluation:
+    ```bash
+    # For conf.ini run:
+    python evalne ./examples/conf.ini
+
+    # For conf_node2vec.ini run:
+    python evalne ./examples/conf_node2vec.ini
+    ```
+
+**Note**: The input networks for EvalNE are required to be in edgelist form.
 
 ### As an API ###
 
@@ -141,14 +168,20 @@ for result in results:
 ### Output ###
 
 The library can provide two types of outputs, depending on the value of the SCORES option
-of the configuration file. If the keyword 'all' is specified, all te available scores for 
+of the configuration file. If the keyword 'all' is specified, all the available scores for 
 every algorithm on each network and experiment repeat will be stored. These results will 
 be written to files named `eval_output_rep_x.txt` where `x` is an integer corresponding 
 to each repeat ID. These files will be stored in the corresponding output folders as
 specified in the OUTPATHS option of the configuration file used.
 
-Setting the SCORES option to `%(maximize)` will generate a tabular output of Alg.\Network 
-and populate it with the averaged results over all the experiment repeats. 
+Setting the SCORES option to `%(maximize)` will generate a tabular output and write it
+to a file named `eval_output.txt`. This file can be located in the same path from where
+the execution was run and will contain a table of Alg.\Network which will be populated
+with the averaged results over all the experiment repeats. 
+
+Additionally, if the option TRAINTEST_PATH contains a valid filename, EvalNE will create
+a file with that name under each of the OUTPATHS provided. In each of these paths the
+library will store the true and false train and test sets of edge. 
 
 NOTE: The tabular output is not available for mixes of directed and undirected networks.
 

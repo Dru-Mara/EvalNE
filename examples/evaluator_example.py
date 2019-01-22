@@ -69,9 +69,9 @@ def main():
 
 def preprocess(inpath, outpath, delimiter, directed):
     """
-    Graph preprocessing rutine.
+    Graph preprocessing routine.
     """
-    print('Preprocesing graph...')
+    print('Preprocessing graph...')
 
     # Load a graph
     G = pp.load_graph(inpath, delimiter=delimiter, comments='#', directed=directed)
