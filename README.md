@@ -17,7 +17,8 @@ to evaluate any publicly available implementation of a NE method. These
 implementations can be obtained from libraries such as 
 [OpenNE](https://github.com/thunlp/OpenNE) or
 [GEM](https://github.com/palash1992/GEM) 
-as well as directly from the web pages of the authors e.g. [CNE](),
+as well as directly from the web pages of the authors e.g. 
+[CNE](https://bitbucket.org/ghentdatascience/cne-public/src/master/),
 [PRUNE](https://github.com/ntumslab/PRUNE). 
 
 EvalNE also includes the following LP heuristics for both directed and

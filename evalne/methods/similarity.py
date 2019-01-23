@@ -51,13 +51,13 @@ def _apply_prediction(G, func, ebunch=None):
 
 
 def common_neighbours(G, ebunch=None, neighbourhood='in'):
-    r"""
+    """
     Compute the common neighbours of all node pairs in ebunch.
     For undirected graphs common neighbours of nodes 'u' and 'v' is defined as:
-    |\Gamma(u) \cap \Gamma(v)|
+    :math:`|\Gamma(u) \cap \Gamma(v)|`
     For directed graphs we can consider either the in or the out-neighbourhood:
-    |\Gamma_i(u) \cap \Gamma_i(v)|
-    |\Gamma_o(u) \cap \Gamma_o(v)|
+    :math:`|\Gamma_i(u) \cap \Gamma_i(v)|`
+    :math:`|\Gamma_o(u) \cap \Gamma_o(v)|`
 
     Parameters
     ----------
@@ -104,10 +104,10 @@ def jaccard_coefficient(G, ebunch=None, neighbourhood='in'):
     r"""
     Compute the Jaccard coefficient of all node pairs in ebunch.
     For undirected graphs Jaccard coefficient of nodes 'u' and 'v' is defined as:
-    |\Gamma(u) \cap \Gamma(v)| / |\Gamma(u) \cup \Gamma(v)|
+    :math:`|\Gamma(u) \cap \Gamma(v)| / |\Gamma(u) \cup \Gamma(v)|`
     For directed graphs we can consider either the in or the out-neighbourhood:
-    |\Gamma_i(u) \cap \Gamma_i(v)| / |\Gamma_i(u) \cup \Gamma_i(v)|
-    |\Gamma_o(u) \cap \Gamma_o(v)| / |\Gamma_o(u) \cup \Gamma_o(v)|
+    :math:`|\Gamma_i(u) \cap \Gamma_i(v)| / |\Gamma_i(u) \cup \Gamma_i(v)|`
+    :math:`|\Gamma_o(u) \cap \Gamma_o(v)| / |\Gamma_o(u) \cup \Gamma_o(v)|`
 
     Parameters
     ----------
@@ -163,10 +163,10 @@ def adamic_adar_index(G, ebunch=None, neighbourhood='in'):
     r"""
     Compute the Adamic-Adar index of all node pairs in ebunch.
     For undirected graphs the Adamic-Adar index of nodes 'u' and 'v' is defined as:
-    \sum_{w \in \Gamma(u) \cap \Gamma(v)} \frac{1}{\log |\Gamma(w)|}
+    :math:`\sum_{w \in \Gamma(u) \cap \Gamma(v)} \frac{1}{\log |\Gamma(w)|}`
     For directed graphs we can consider either the in or the out-neighbourhood:
-    \sum_{w \in \Gamma_i(u) \cap \Gamma_i(v)} \frac{1}{\log |\Gamma_i(w)|}
-    \sum_{w \in \Gamma_o(u) \cap \Gamma_o(v)} \frac{1}{\log |\Gamma_o(w)|}
+    :math:`\sum_{w \in \Gamma_i(u) \cap \Gamma_i(v)} \frac{1}{\log |\Gamma_i(w)|}`
+    :math:`\sum_{w \in \Gamma_o(u) \cap \Gamma_o(v)} \frac{1}{\log |\Gamma_o(w)|}`
 
     Parameters
     ----------
@@ -225,10 +225,10 @@ def resource_allocation_index(G, ebunch=None, neighbourhood='in'):
     r"""
     Compute the resource allocation index of all node pairs in ebunch.
     For undirected graphs the resource allocation index of nodes 'u' and 'v' is defined as:
-    \sum_{w \in \Gamma(u) \cap \Gamma(v)} \frac{1}{|\Gamma(w)|}
+    :math:`\sum_{w \in \Gamma(u) \cap \Gamma(v)} \frac{1}{|\Gamma(w)|}`
     For directed graphs we can consider either the in or the out-neighbourhood:
-    \sum_{w \in \Gamma_i(u) \cap \Gamma_i(v)} \frac{1}{|\Gamma_i(w)|}
-    \sum_{w \in \Gamma_o(u) \cap \Gamma_o(v)} \frac{1}{|\Gamma_o(w)|}
+    :math:`\sum_{w \in \Gamma_i(u) \cap \Gamma_i(v)} \frac{1}{|\Gamma_i(w)|}`
+    :math:`\sum_{w \in \Gamma_o(u) \cap \Gamma_o(v)} \frac{1}{|\Gamma_o(w)|}`
 
     Parameters
     ----------
@@ -287,10 +287,10 @@ def preferential_attachment(G, ebunch=None, neighbourhood='in'):
     r"""
     Compute the preferential attachment score of all node pairs in ebunch.
     For undirected graphs the preferential attachment score of nodes 'u' and 'v' is defined as:
-    |\Gamma(u)| |\Gamma(v)|
+    :math:`|\Gamma(u)| |\Gamma(v)|`
     For directed graphs we can consider either the in or the out-neighbourhood:
-    |\Gamma_i(u)| |\Gamma_i(v)|
-    |\Gamma_o(u)| |\Gamma_o(v)|
+    :math:`|\Gamma_i(u)| |\Gamma_i(v)|`
+    :math:`|\Gamma_o(u)| |\Gamma_o(v)|`
 
     Parameters
     ----------
