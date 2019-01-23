@@ -1,6 +1,13 @@
 # EvalNE: A Python library for evaluating Network Embedding methods on Link Prediction #
 
-This repository provides the source code for EvalNE, an open source Python
+[![Documentation Status](https://readthedocs.org/projects/evalne/badge/?version=latest)](https://evalne.readthedocs.io/en/latest/?badge=latest)
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/Dru-Mara/EvalNE/issues)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
+[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
+[![made-with-sphinx-doc](https://img.shields.io/badge/Made%20with-Sphinx-1f425f.svg)](https://www.sphinx-doc.org/)
+
+
+This repository provides the source code for EvalNE, an open-source Python
 library designed for assessing and comparing the performance of Network
 Embedding (NE) methods on Link Prediction (LP) tasks. The library intends to
 simplify this complex and time consuming evaluation process by providing
@@ -9,7 +16,9 @@ train and test edges, negative sampling, selection of the scoring function, etc.
 
 The library can be used both as a command line tool and an API. 
 
-The library is maintained by Alexandru Mara (alexandru.mara(at)ugent.be).
+The library is maintained by Alexandru Mara (alexandru.mara(at)ugent.be). The full
+documentation of EvalNE is hosted by *Read the Docs* and can be found 
+[here](https://evalne.readthedocs.io/en/latest/).
 
 #### For Methodologists ####
 A command line interface in combination with a configuration file allow the user
