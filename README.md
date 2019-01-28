@@ -78,11 +78,13 @@ Before installing EvalNE make sure that pip and python-tk packages are installed
 on your system, this can be done 
 by running:
 ```bash
-sudo apt-get install python-pip      # For Python 2
-sudo apt-get install python3-pip     # For Python 3
+# Python 2
+sudo apt-get install python-pip
+sudo apt-get install python-tk
 
-sudo apt-get install python-tk       # For Python 2
-sudo apt-get install python3-tk      # For Python 3
+# Python 3
+sudo apt-get install python3-pip
+sudo apt-get install python3-tk
 ```
 
 Clone the EvalNE repository:
