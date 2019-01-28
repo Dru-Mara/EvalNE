@@ -14,7 +14,8 @@ simplify this complex and time consuming evaluation process by providing
 automation and abstraction of tasks such as hyper-parameter tuning, selection of
 train and test edges, negative sampling, selection of the scoring function, etc.
 
-The library can be used both as a command line tool and an API. 
+The library can be used both as a command line tool and an API. In its current 
+version, EvalNE can evaluate unweighted directed and undirected simple graphs.
 
 The library is maintained by Alexandru Mara (alexandru.mara(at)ugent.be). The full
 documentation of EvalNE is hosted by *Read the Docs* and can be found 
@@ -73,12 +74,39 @@ EvalNE depends on the following packages:
 - Matplotlib
 - Networkx 2.2
 
-To install, clone this repository, `cd` to the parent folder or the library and
-run:
+Before installing EvalNE make sure that pip and python-tk packages are installed 
+on your system, this can be done 
+by running:
 ```bash
-pip install -r requirements.txt
-python setup.py install
+sudo apt-get install python-pip      # For Python 2
+sudo apt-get install python3-pip     # For Python 3
+
+sudo apt-get install python-tk       # For Python 2
+sudo apt-get install python3-tk      # For Python 3
 ```
+
+Clone the EvalNE repository:
+```bash
+git clone https://github.com/Dru-Mara/EvalNE.git
+cd EvalNE
+```
+
+Install strict library requirements:
+```bash
+# Python 2
+pip install -r requirements.txt
+sudo python setup.py install
+
+# Python 3
+pip3 install -r requirements.txt
+sudo python3 setup.py install
+```
+
+**NOTE:** In order to run the examples the OpenNE library and PRUNE are required. The 
+instructions for installing them are available 
+[here](https://github.com/thunlp/OpenNE) and [here](https://github.com/ntumslab/PRUNE), 
+respectively.
+
 
 ## Usage ##
 
@@ -104,9 +132,8 @@ subsection.
 In order to run the evaluations using the provided `conf.ini` and 
 `conf_node2vec.ini` files, the following steps are necessary: 
 
-1. Download the libraries/methods used in the examples:
-   * [OpenNE](https://github.com/thunlp/OpenNE) 
-   * [PRUNE](https://github.com/ntumslab/PRUNE)
+1. Install OpenNE and PRUNE as shown in the *Instalation* section.
+
 2. Download the datasets used in the examples:
    * For `conf.ini`:
       * [StudentDB](http://adrem.ua.ac.be/smurfig)
