@@ -24,10 +24,11 @@ subsection.
 In order to run the evaluations using the provided `conf.ini` and 
 `conf_node2vec.ini` files, the following steps are necessary: 
 
-1. Download the libraries/methods used in the examples:
+1. Download and install the libraries/methods used in the examples:
 
   * OpenNE_
   * PRUNE_
+  * Metapath2Vec_
 
 2. Download the datasets used in the examples:
 
@@ -61,6 +62,7 @@ And the correct path for PRUNE under the METHODS_OTHER option.
 
 .. _OpenNE: https://github.com/thunlp/OpenNE
 .. _PRUNE: https://github.com/ntumslab/PRUNE
+.. _Metapath2Vec: https://www.dropbox.com/s/w3wmo2ru9kpk39n/code_metapath2vec.zip?dl=0
 .. _StudentDB: http://adrem.ua.ac.be/smurfig
 .. _GR-QC: https://snap.stanford.edu/data/ca-GrQc.html
 .. _Facebook: https://snap.stanford.edu/data/egonets-Facebook.html
