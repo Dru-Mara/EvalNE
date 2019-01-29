@@ -15,7 +15,7 @@ automation and abstraction of tasks such as hyper-parameter tuning, selection of
 train and test edges, negative sampling, selection of the scoring function, etc.
 
 The library can be used both as a command line tool and an API. In its current 
-version, EvalNE can evaluate unweighted directed and undirected simple graphs.
+version, EvalNE can evaluate unweighted directed and undirected simple networks.
 
 The library is maintained by Alexandru Mara (alexandru.mara(at)ugent.be). The full
 documentation of EvalNE is hosted by *Read the Docs* and can be found 
@@ -68,11 +68,11 @@ When used as an API, EvalNE provides functions to:
 The library has been tested on Python 2.7 and Python 3.6.
 
 EvalNE depends on the following packages:
-- Numpy
-- Scipy
-- Sklearn
-- Matplotlib
-- Networkx 2.2
+* Numpy
+* Scipy
+* Sklearn
+* Matplotlib
+* Networkx 2.2
 
 Before installing EvalNE make sure that pip and python-tk packages are installed 
 on your system, this can be done 
@@ -104,9 +104,10 @@ pip3 install -r requirements.txt
 sudo python3 setup.py install
 ```
 
-**NOTE:** In order to run the examples the OpenNE library and PRUNE are required. The 
-instructions for installing them are available 
-[here](https://github.com/thunlp/OpenNE) and [here](https://github.com/ntumslab/PRUNE), 
+**NOTE:** In order to run the examples the OpenNE library, PRUNE and Metapath2Vec are 
+required. The instructions for installing them are available 
+[here](https://github.com/thunlp/OpenNE), [here](https://github.com/ntumslab/PRUNE), 
+and [here](https://www.dropbox.com/s/w3wmo2ru9kpk39n/code_metapath2vec.zip?dl=0), 
 respectively.
 
 
@@ -224,4 +225,19 @@ library will store the true and false train and test sets of edge.
 
 NOTE: The tabular output is not available for mixes of directed and undirected networks.
 
- 
+
+### Citation ###
+
+If you have found EvaNE usefull in your research, please cite our 
+[arXiv paper](https://arxiv.org/abs/1901.09691):
+
+```
+    @misc{Mara2019,
+      author = {Alexandru Mara and Jefrey Lijffijt and Tijl De Bie},
+      title = {EvalNE: A Framework for Evaluating Network Embeddings on Link Prediction},
+      year = {2019},
+      archivePrefix = {arXiv},
+      eprint = {1901.09691}
+    }
+```
+

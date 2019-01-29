@@ -45,16 +45,17 @@ See :doc:`the quickstart <quickstart>` to get started.
 Citation
 --------
 
-If you have found EvaNE usefull in your research, please cite our paper in arXiv_:
+If you have found EvaNE usefull in your research, please cite our arXiv paper_ :
 
-.. _arXiv: https://wololololololo
+.. _paper: https://arxiv.org/abs/1901.09691
 
 .. code-block:: console
 
-    @misc{xxxxx,
-    Author = {Alexandru Mara, Jefrey Lijffijt, Tijl De Bie},
-    Title = {EvalNE: A Framework for Evaluating Network Embeddings on Link Prediction},
-    Year = {2019},
-    Eprint = {xxxxx},
+    @misc{Mara2019,
+      author = {Alexandru Mara and Jefrey Lijffijt and Tijl De Bie},
+      title = {EvalNE: A Framework for Evaluating Network Embeddings on Link Prediction},
+      year = {2019},
+      archivePrefix = {arXiv},
+      eprint = {1901.09691}
     }
 
