@@ -2,10 +2,9 @@
 
 [![Documentation Status](https://readthedocs.org/projects/evalne/badge/?version=latest)](https://evalne.readthedocs.io/en/latest/?badge=latest)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/Dru-Mara/EvalNE/issues)
-[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Dru-Mara/EvalNE/blob/master/LICENSE)
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 [![made-with-sphinx-doc](https://img.shields.io/badge/Made%20with-Sphinx-1f425f.svg)](https://www.sphinx-doc.org/)
-
 
 This repository provides the source code for EvalNE, an open-source Python
 library designed for assessing and comparing the performance of Network
@@ -155,7 +154,7 @@ file. And the correct path for PRUNE under the METHODS_OTHER option.
     python evalne ./examples/conf.ini
 
     # For conf_node2vec.ini run:
-    python evalne ./examples/conf_node2vec.ini
+    python evalne ./examples/node2vec/conf_node2vec.ini
     ```
 
 **Note**: The input networks for EvalNE are required to be in edgelist form.
@@ -195,8 +194,8 @@ edge_emb = ['average', 'hadamard']
 # Evaluate embedding methods
 for i in range(len(methods)):
     command = commands[i] + " --input {} --output {} --representation-size {}"
-    nee.evaluate_ne_cmd(method_name=methods[i], command=command, 
-                        edge_embedding_methods=edge_emb, input_delim=' ', emb_delim=' ')
+    nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command, 
+                     edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
 
 # Get output
 results = nee.get_results()
@@ -223,10 +222,10 @@ Additionally, if the option TRAINTEST_PATH contains a valid filename, EvalNE wil
 a file with that name under each of the OUTPATHS provided. In each of these paths the
 library will store the true and false train and test sets of edge. 
 
-NOTE: The tabular output is not available for mixes of directed and undirected networks.
+**NOTE**: The tabular output is not available for mixes of directed and undirected networks.
 
 
-### Citation ###
+## Citation ##
 
 If you have found EvaNE usefull in your research, please cite our 
 [arXiv paper](https://arxiv.org/abs/1901.09691):

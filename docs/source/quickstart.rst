@@ -54,7 +54,7 @@ And the correct path for PRUNE under the METHODS_OTHER option.
         python evalne ./examples/conf.ini
     
         # For conf_node2vec.ini run:
-        python evalne ./examples/conf_node2vec.ini
+        python evalne ./examples/node2vec/conf_node2vec.ini
 
 .. note::
 

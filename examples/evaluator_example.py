@@ -27,17 +27,18 @@ def main():
     inpath = list()
     inpath.append("../evalne/tests/data/network.edgelist")
     # inpath.append("../../data/BlogCatalog/blog.edgelist")
+    outpath = "./output/"
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
     directeds = (False, False)		# indicates if the graphs are directed or undirected
     delimiters = (',', '\t')		# indicates the delimiter in the original graph
-    repeats = 1		                # number of time the experiment will be repeated
+    repeats = 2		                # number of time the experiment will be repeated
+    results = list()                # Stores the experiment results for each method and dataset
+    names = list()                  # Stores the names of the method evaluated
 
     for i in range(len(inpath)):
-        # Create output folders
-        outpath = "./output/"
-        if not os.path.exists(outpath):
-            os.makedirs(outpath)
 
-        # Create folders for the train/test splits
+        # Create folders for the evaluation results (one per input network)
         outpath = outpath + inpath[i].split("/")[-2] + "/"
         if not os.path.exists(outpath):
             os.makedirs(outpath)
@@ -47,7 +48,8 @@ def main():
 
         # Load and preprocess the graph
         G = preprocess(inpath[i], outpath, delimiters[i], directeds[i])
-        
+
+        res = list()
         # For each repeat of the experiment generate new data splits
         for repeat in range(repeats):
             print('Repetition {} of experiment'.format(repeat))
@@ -61,8 +63,19 @@ def main():
             # Evaluate other NE methods
             eval_other(nee)
 
-            # Check out the scores and store them to a file
+            # Write scores to one file per experiment repeat
             check_scores(nee, outpath, repeat)
+
+            # Get the experiment scores to average over experiment repeats
+            names, res = get_scores(nee, res)
+
+            # Reset the scoresheets
+            nee.reset_results()
+
+        results.append(res)
+
+    # Write scores averaged over exp repeats to a single file
+    write_output(results, names, repeats, outpath)
 
     print("End of evaluation")
 
@@ -119,6 +132,9 @@ def eval_other(nee):
     # Set the methods
     methods_other = ['PRUNE', 'metapath2vec++']
 
+    # Set the method types
+    method_type = ['ne', 'ne']
+
     # Set the commands
     commands_other = [
         'python ../../methods/PRUNE/src/main.py --inputgraph {} --output {} --dimension {}',
@@ -130,9 +146,9 @@ def eval_other(nee):
 
     for i in range(len(methods_other)):
         # Evaluate the method
-        nee.evaluate_ne_cmd(method_name=methods_other[i], command=commands_other[i],
-                            edge_embedding_methods=edge_embedding_methods,
-                            input_delim=input_delim[i], emb_delim=output_delim[i],)
+        nee.evaluate_cmd(method_name=methods_other[i], method_type=method_type[i], command=commands_other[i],
+                         edge_embedding_methods=edge_embedding_methods,
+                         input_delim=input_delim[i], output_delim=output_delim[i])
 
     # Evaluate methods from OpenNE
     # ----------------------------
@@ -141,7 +157,7 @@ def eval_other(nee):
 
     # Set the commands
     commands = [
-        'python -m openne --method node2vec --graph-format edgelist --epochs 100 --p 0.25 --q 0.25 --number-walks 10',
+        'python -m openne --method node2vec --graph-format edgelist --epochs 100 --number-walks 10',
         'python -m openne --method deepWalk --graph-format edgelist --epochs 100 --number-walks 10 --walk-length 80',
         'python -m openne --method line --graph-format edgelist --epochs 100']
 
@@ -151,8 +167,9 @@ def eval_other(nee):
     # For each method evaluate
     for i in range(len(methods)):
         command = commands[i] + " --input {} --output {} --representation-size {}"
-        nee.evaluate_ne_cmd(method_name=methods[i], command=command, edge_embedding_methods=edge_embedding_methods,
-                            input_delim=' ', emb_delim=' ', tune_params=tune_params[i])
+        nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+                         edge_embedding_methods=edge_embedding_methods, input_delim=' ', output_delim=' ',
+                         tune_params=tune_params[i])
 
 
 def check_scores(nee, outpath, repeat):
@@ -166,8 +183,48 @@ def check_scores(nee, outpath, repeat):
     for result in results:
         result.save(outfile)
 
-    # Reset the scoresheets
-    nee.reset_results()
+
+def get_scores(nee, res):
+    # Check the scoresheets
+    results = nee.get_results()
+    names = list()
+
+    for i in range(len(results)):
+
+        # Update the res variable with the results of the current repeat
+        if len(res) != len(results):
+            res.append(results[i].get_all())
+        else:
+            aux = results[i].get_all()
+            res[i] = (res[i][0], [res[i][1][k] + aux[1][k] for k in range(len(aux[1]))])
+
+        # Add the method names to a list
+        if 'edge_embed_method' in results[i].params:
+            names.append(results[i].method + '-' + results[i].params['edge_embed_method'])
+        else:
+            names.append(results[i].method)
+
+    return names, res
+
+
+def write_output(results, method_names, repeats, outpath):
+    # Set output name
+    filename = outpath + "eval_output.txt"
+
+    # Write data to the file
+    f = open(filename, 'a+b')
+    for i in range(len(results)):
+        f.write(('\n\nNetwork {}'.format(i)).encode())
+        f.write('\n---------------------------'.encode())
+        for j in range(len(results[i])):
+            f.write(('\n{}:'.format(method_names[j])).encode())
+            f.write('\n '.encode())
+            for k in range(len(results[i][j][0])):
+                f.write((results[i][j][0][k] + ':  \t ' +
+                         str(np.around(results[i][j][1][k] / repeats, 4)) + '\n ').encode())
+
+    # Close the file
+    f.close()
 
 
 if __name__ == "__main__":

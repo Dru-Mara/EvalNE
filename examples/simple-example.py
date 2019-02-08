@@ -36,8 +36,8 @@ edge_emb = ['average', 'hadamard']
 # Evaluate embedding methods
 for i in range(len(methods)):
     command = commands[i] + " --input {} --output {} --representation-size {}"
-    nee.evaluate_ne_cmd(method_name=methods[i], command=command,
-                        edge_embedding_methods=edge_emb, input_delim=' ', emb_delim=' ')
+    nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+                     edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
 
 # Get output
 results = nee.get_results()

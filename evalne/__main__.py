@@ -7,9 +7,9 @@
 import os
 import random
 import time
-from sys import argv
-
 import numpy as np
+
+from sys import argv
 
 from evalne.evaluation.evaluator import *
 from evalne.preprocessing import preprocess as pp
@@ -44,7 +44,7 @@ def evaluate(setup):
 
     # Auxiliary variable to store the tabular results
     results = list()
-    method_names = list()
+    names = list()
 
     # Loop over all input networks
     for i in range(len(inpaths)):
@@ -66,6 +66,8 @@ def evaluate(setup):
 
         # Load and preprocess the graph
         G = preprocess(setup, i)
+
+        res = list()
 
         # For each repeat of the experiment generate new data splits
         for repeat in range(setup.exp_repeats):
@@ -95,20 +97,17 @@ def evaluate(setup):
             if setup.methods_opne is not None or setup.methods_other is not None:
                 eval_other(setup, nee)
 
-            # Store the results in tabular format
-            if setup.scores is not None and setup.scores != 'all':
-                names, res = get_scores(setup, nee)
-                results.append(res)
-                method_names.append(names)
-
-            # Store the plots or complete output
-            store_scores(setup, nee, i, repeat)
+            # Store the results and average over the exp. repeats
+            names, res = get_scores(setup, nee, res, i, repeat)
 
             # Reset the scoresheets
             nee.reset_results()
 
-    if setup.scores is not None and setup.scores != 'all':
-        store_tabular(setup, results, method_names)
+        results.append(res)
+
+    # Store the results
+    if setup.scores is not None:
+        write_output(setup, results, names)
 
     print("End of experiment")
 
@@ -171,77 +170,90 @@ def eval_other(setup, nee):
         # -------------------------------
         for i in range(len(setup.methods_other)):
             # Evaluate the method
-            nee.evaluate_ne_cmd(method_name=setup.names_other[i], command=setup.methods_other[i],
-                                edge_embedding_methods=setup.edge_embedding_methods,
-                                input_delim=setup.input_delim_other[i], emb_delim=setup.output_delim_other[i],
-                                tune_params=setup.tune_params_other[i], maximize=setup.maximize, verbose=setup.verbose)
+            nee.evaluate_cmd(method_name=setup.names_other[i], method_type=setup.embtype_other[i],
+                             command=setup.methods_other[i], edge_embedding_methods=setup.edge_embedding_methods,
+                             input_delim=setup.input_delim_other[i], output_delim=setup.output_delim_other[i],
+                             tune_params=setup.tune_params_other[i], maximize=setup.maximize, verbose=setup.verbose)
 
     if setup.methods_opne is not None:
         # Evaluate methods from OpenNE
         # ----------------------------
         for i in range(len(setup.methods_opne)):
             command = setup.methods_opne[i] + " --input {} --output {} --representation-size {}"
-            nee.evaluate_ne_cmd(method_name=setup.names_opne[i], command=command, input_delim=' ',
-                                edge_embedding_methods=setup.edge_embedding_methods, emb_delim=' ',
-                                tune_params=setup.tune_params_opne[i], maximize=setup.maximize, verbose=setup.verbose)
+            nee.evaluate_cmd(method_name=setup.names_opne[i], method_type='ne', command=command, input_delim=' ',
+                             edge_embedding_methods=setup.edge_embedding_methods, output_delim=' ',
+                             tune_params=setup.tune_params_opne[i], maximize=setup.maximize, verbose=setup.verbose)
 
 
-def store_scores(setup, nee, i, repeat):
+def get_scores(setup, nee, res, nw_indx, repeat):
     # Check the scoresheets
     results = nee.get_results()
+    names = list()
 
     # Set the output file names
-    filename = setup.outpaths[i] + setup.names[i] + "_rep_" + str(repeat)
+    filename = setup.outpaths[nw_indx] + setup.names[nw_indx] + "_rep_" + str(repeat)
 
-    for result in results:
+    for i in range(len(results)):
+
+        # Update the res variable with the results of the current repeat
+        if len(res) != len(results):
+            res.append(results[i].get_all(precatk_vals=setup.precatk_vals))
+        else:
+            aux = results[i].get_all(precatk_vals=setup.precatk_vals)
+            res[i] = (res[i][0], [res[i][1][k] + aux[1][k] for k in range(len(aux[1]))])
+
+        # Add the method names to a list
+        if 'edge_embed_method' in results[i].params:
+            names.append(results[i].method + '-' + results[i].params['edge_embed_method'])
+        else:
+            names.append(results[i].method)
+
+        # Plot the curves if needed
         if setup.curves is not None:
             # Plot all curves
-            result.plot(setup.curves, filename + '_' + result.method)
+            results[i].plot(filename=filename + '_' + results[i].method, curve=setup.curves)
 
-        if setup.scores == 'all':
-            result.save(filename + '.txt')
+    return names, res
 
 
-def store_tabular(setup, results, method_names):
+def write_output(setup, results, method_names):
     # Set output name
     filename = "./eval_output.txt"
 
-    # Compute the average score over all repeats
-    avg_res = np.mean(np.array(results).reshape(len(setup.names), setup.exp_repeats, len(method_names[0])), 1)
-    avg_res = avg_res.transpose()
-
     f = open(filename, 'a+b')
-    headder = '\nAlg.\\Network'
-    for name in setup.names:
-        headder += '\t' + name
-    f.write((headder + '\n').encode())
+    if setup.scores == 'all':
+        for i in range(len(results)):
+            f.write(('\n\n{} Network'.format(setup.names[i])).encode())
+            f.write('\n---------------------------'.encode())
+            for j in range(len(results[i])):
+                f.write(('\n{}:'.format(method_names[j])).encode())
+                f.write('\n '.encode())
+                for k in range(len(results[i][j][0])):
+                    f.write((results[i][j][0][k] + ':  \t ' +
+                             str(np.around(results[i][j][1][k] / setup.exp_repeats, 4)) + '\n ').encode())
 
-    # Write the data to the file
-    for i in range(avg_res.shape[0]):
-        f.write(method_names[0][i].encode())
-        for j in range(avg_res.shape[1]):
-            f.write(('\t' + str(avg_res[i][j])).encode())
-        f.write('\n'.encode())
+    else:
+        # Find the metric's index
+        try:
+            index = results[0][0][0].index(setup.scores)
+        except ValueError:
+            raise ValueError('The selected metric in `setup.scores` does not exist!')
+
+        # Write the header
+        header = '\nAlg.\\Network'
+        for name in setup.names:
+            header += '\t' + name
+        f.write((header + '\n').encode())
+
+        # Write the data to the file
+        for j in range(len(results[0])):
+            f.write((method_names[j] + ': ').encode())
+            for i in range(len(results)):
+                f.write(('\t' + str(np.around(results[i][j][1][index] / setup.exp_repeats, 4))).encode())
+            f.write('\n'.encode())
 
     # Close the file
     f.close()
-
-
-def get_scores(setup, nee):
-    # Check the scoresheets
-    results = nee.get_results()
-
-    res = list()
-    names = list()
-    for result in results:
-        func = getattr(result.test_scores, str(setup.scores))
-        res.append(func())
-        if result.params['edge_embed_method'] is not None:
-            names.append(result.method + '-' + result.params['edge_embed_method'])
-        else:
-            names.append(result.method)
-
-    return names, res
 
 
 if __name__ == "__main__":

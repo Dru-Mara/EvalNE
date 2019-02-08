@@ -18,8 +18,6 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import inv
 
-from evalne.evaluation import score
-
 
 class Katz(object):
     r"""
@@ -44,20 +42,18 @@ class Katz(object):
     def _fit(self):
         adj = nx.adjacency_matrix(self._G)
         ident = sparse.identity(len(self._G.nodes))
-        self.sim = inv(ident - self.beta * adj.transpose()) - ident     # Maybe adj should not be inverted¿?
+        self.sim = inv(ident - self.beta * adj.transpose()) - ident
 
     def predict(self, ebunch):
         ebunch = np.array(ebunch)
         return np.array(self.sim[ebunch[:, 0], ebunch[:, 1]]).flatten()
 
-    def scoresheet(self, ebunch, y_true):
-        # metrics.score(y_true=y_true, y_pred=self.predict(ebunch), method=self.scoring_method)
-        y_pred = self.predict(ebunch)
-        return score.ScoreSheet(method='Katz', params={'beta': self.beta},
-                                test_results=True, y_true=y_true, y_pred=y_pred, y_bin=y_pred)
-
     def save_sim_matrix(self, filename):
         np.savetxt(filename, self.sim, delimiter=',', fmt='%d')
+
+    def get_params(self):
+        params = {'beta': self.beta}
+        return params
 
 
 class KatzApprox(object):
@@ -95,9 +91,6 @@ class KatzApprox(object):
             res.append(np.sum(betas * paths))
         return np.array(res).reshape(-1, 1)
 
-    def scoresheet(self, ebunch, y_true):
-        # metrics.score(y_true=y_true, y_pred=self.fit_predict(ebunch), method=self.scoring_method)
-        y_pred = self.fit_predict(ebunch)
-        # return score.Scores(y_true=y_true, y_pred=y_pred, y_bin=y_pred)
-        return score.ScoreSheet(method='Katz', params={'beta': self.beta, 'path_len': self.path_len},
-                                test_results=True, y_true=y_true, y_pred=y_pred, y_bin=y_pred)
+    def get_params(self):
+        params = {'beta': self.beta, 'path_len': self.path_len}
+        return params

@@ -15,6 +15,7 @@ from __future__ import division
 from __future__ import print_function
 
 import random
+import warnings
 
 import networkx as nx
 import numpy as np
@@ -185,6 +186,8 @@ def split_train_test(G, train_frac=0.51, seed=0):
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
+    if train_frac <= 0.0 or train_frac > 1.0:
+        raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
 
     # Initialize random number generator
     random.seed(seed)
@@ -256,6 +259,8 @@ def naive_split_train_test(G, train_frac=0.51, seed=0):
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
+    if train_frac <= 0.0 or train_frac > 1.0:
+        raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
 
     # Initialize random number generator
     np.random.seed(seed)
@@ -361,6 +366,16 @@ def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=
     if num_fe_test is None:
         num_fe_test = len(test_E)
 
+    # Make sure the required amount of false edges can be generated
+    max_nonedges = len(V) * len(V) - len(G.edges)
+    if num_fe_train > max_nonedges:
+        raise ValueError('Too many false train edges required! Max available for train+test is {}'.format(max_nonedges))
+    else:
+        if num_fe_train + num_fe_test > max_nonedges:
+            warnings.warn('Too many false edges required in train+test! '
+                          'Using maximum number of false test edges available: {}'.format(max_nonedges - num_fe_train))
+            num_fe_test = max_nonedges - num_fe_train
+
     # Create sets to store the false edges
     train_E_false = set()
     test_E_false = set()
@@ -448,11 +463,22 @@ def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=
     if num_fe_test is None:
         num_fe_test = len(test_E)
 
+    # Make sure the required amount of false edges can be generated
+    max_nonedges = len(V) * len(V) - len(G.edges)
+    if num_fe_train > max_nonedges:
+        raise ValueError(
+            'Too many false train edges required! Max available for train+test is {}'.format(max_nonedges))
+    else:
+        if num_fe_train + num_fe_test > max_nonedges:
+            warnings.warn('Too many false edges required in train+test! '
+                          'Using maximum number of false test edges available: {}'.format(max_nonedges - num_fe_train))
+            num_fe_test = max_nonedges - num_fe_train
+
     # Create sets to store the false edges
     train_E_false = set()
     test_E_false = set()
 
-    # Generate negative test edges
+    # Generate negative train edges
     while len(train_E_false) < num_fe_train:
         edge = tuple(random.sample(V, 2))
         redge = tuple(reversed(edge))
@@ -575,6 +601,30 @@ def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_
 
     # Return the names given to the 4 files where data is stored
     return filenames
+
+
+def store_edgelists(train_path, test_path, train_edges, test_edges):
+    r"""
+    Writes the train and test edgelists to files with the specified names.
+
+    Parameters
+    ----------
+    train_path : string
+       Indicates the path where the train data will be stored.
+    test_path : string
+       Indicates the path where the test data will be stored.
+    train_edges : set
+       Set of train true and false edges
+    test_edges : set
+       Set of test true and false edges
+    """
+    # Convert edge-lists to numpy arrays
+    train_edges = np.array([list(edge_tuple) for edge_tuple in train_edges])
+    test_edges = np.array([list(edge_tuple) for edge_tuple in test_edges])
+
+    # Save the splits in different files
+    np.savetxt(train_path, train_edges, delimiter=',', fmt='%d')
+    np.savetxt(test_path, test_edges, delimiter=',', fmt='%d')
 
 
 def check_overlap(filename, num_sets):

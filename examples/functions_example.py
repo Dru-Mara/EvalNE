@@ -146,8 +146,8 @@ print("Test AUROC {}: {}".format("common neighbours", test_auroc))
 
 # Compute precision recall curves
 # Options are: pr, roc, all
-results.plot(results='train', curve='all', filename=output_path + 'CN_train')
-results.plot(results='test', curve='all', filename=output_path + 'CN_test')
+results.plot(filename=output_path + 'CN_train', results='train', curve='all')
+results.plot(filename=output_path + 'CN_test', results='test', curve='all')
 
 # -----------------------------
 # Evaluate LP using Score class

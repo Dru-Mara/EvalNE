@@ -5,7 +5,6 @@
 # Date: 18/12/2018
 
 # TODO: Split object should take as input same as train_frac, fast_split, owa, num_fe_train, num_fe_test,
-# TODO: The method should expose a compute and methods to set the splits from file
 
 from __future__ import division
 
@@ -95,6 +94,7 @@ class EvalSplit(object):
         """
         This method allows the user to set the train/test true and false edge sets manually.
         All sets are required as well as a parameter indicating if the graph is directed or not.
+        The sets of false edges can be empty.
 
         Parameters
         ----------
@@ -113,13 +113,34 @@ class EvalSplit(object):
         """
         if train_E is not None and train_E_false is not None \
                 and test_E is not None and test_E_false is not None:
-            # Stack the true and false edges together.
-            self._train_edges = np.vstack((list(train_E), list(train_E_false)))
-            self._test_edges = np.vstack((list(test_E), list(test_E_false)))
 
-            # Create labels vectors with 1s for true edges and 0s for false edges
-            self._train_labels = np.hstack((np.ones(len(train_E)), np.zeros(len(train_E_false))))
-            self._test_labels = np.hstack((np.ones(len(test_E)), np.zeros(len(test_E_false))))
+            if len(train_E_false) != 0:
+                # Stack the true and false edges together.
+                self._train_edges = np.vstack((list(train_E), list(train_E_false)))
+
+                # Create labels vectors with 1s for true edges and 0s for false edges
+                self._train_labels = np.hstack((np.ones(len(train_E)), np.zeros(len(train_E_false))))
+
+            else:
+                # Stack the true and false edges together.
+                self._train_edges = np.array(list(train_E))
+
+                # Create labels vectors with 1s for true edges and 0s for false edges
+                self._train_labels = np.ones(len(train_E))
+
+            if len(test_E_false) != 0:
+                # Stack the true and false edges together.
+                self._test_edges = np.vstack((list(test_E), list(test_E_false)))
+
+                # Create labels vectors with 1s for true edges and 0s for false edges
+                self._test_labels = np.hstack((np.ones(len(test_E)), np.zeros(len(test_E_false))))
+
+            else:
+                # Stack the true and false edges together.
+                self._test_edges = np.array(list(test_E))
+
+                # Create labels vectors with 1s for true edges and 0s for false edges
+                self._test_labels = np.ones(len(test_E))
 
             # Initialize the training graph
             if directed:
@@ -271,3 +292,15 @@ class EvalSplit(object):
         """
         pp.save_graph(self._TG, output_path=output_path, delimiter=delimiter, write_stats=write_stats)
 
+    def store_edgelists(self, train_path, test_path):
+        r"""
+        Writes the train and test edgelists to files with the specified names.
+
+        Parameters
+        ----------
+        train_path : string
+           Indicates the path where the train data will be stored.
+        test_path : string
+           Indicates the path where the test data will be stored.
+        """
+        stt.store_edgelists(train_path, test_path, self.train_edges, self.test_edges)

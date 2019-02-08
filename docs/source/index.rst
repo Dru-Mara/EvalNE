@@ -21,17 +21,19 @@ See :doc:`the quickstart <quickstart>` to get started.
 
 .. toctree::
    :maxdepth: 2
-   :caption: General
+   :caption: Getting started
 
    description
+   installation
+   quickstart
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting started
+   :caption: Developer
 
-   installation
-   quickstart
    api
+   release
+   contributing
 
 .. toctree::
    :maxdepth: 1
