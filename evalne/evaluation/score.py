@@ -18,7 +18,6 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
-from collections import OrderedDict
 
 
 class Results(object):
@@ -270,30 +269,6 @@ class Scores(object):
             A value indicating the precision.
         """
         return self.tp / (self.tp + self.fp) if (self.tp + self.fp) != 0 else float('NaN')
-
-    def precisionatk2(self, k=100):
-        r"""
-        Computes the precision at k score.
-
-        Parameters
-        ----------
-        k : int, optional
-            The k value for which to compute the precision score.
-            Default is 100.
-
-        Returns
-        -------
-        precisionatk : float
-            A value indicating the precision at K.
-        """
-        if k > len(self._sorted):
-            MAX = len(self._sorted)
-        else:
-            MAX = k
-        rel = 0
-        for i in range(MAX):
-            rel += self._sorted[i][0]
-        return rel/k if k != 0 else float('NaN')
 
     def precisionatk(self, k=100):
         r"""

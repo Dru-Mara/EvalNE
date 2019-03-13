@@ -55,7 +55,7 @@ def main():
             print('Repetition {} of experiment'.format(repeat))
 
             # Generate one train/test split with default parameters
-            nee.traintest_split.compute_splits(G, train_frac=0.9, seed=repeat)
+            nee.traintest_split.compute_splits(G, train_frac=0.9, split_id=repeat)
 
             # Evaluate baselines
             eval_baselines(nee, directeds[i])
@@ -63,18 +63,18 @@ def main():
             # Evaluate other NE methods
             eval_other(nee)
 
-            # Write scores to one file per experiment repeat
+            # Write method results to one file per experiment repeat
             check_scores(nee, outpath, repeat)
 
-            # Get the experiment scores to average over experiment repeats
+            # Get the experiment results to average over experiment repeats
             names, res = get_scores(nee, res)
 
-            # Reset the scoresheets
+            # Reset the results
             nee.reset_results()
 
         results.append(res)
 
-    # Write scores averaged over exp repeats to a single file
+    # Write results averaged over exp repeats to a single file
     write_output(results, names, repeats, outpath)
 
     print("End of evaluation")
@@ -179,13 +179,13 @@ def check_scores(nee, outpath, repeat):
     # Check the results
     results = nee.get_results()
 
-    # Store the scoresheets
+    # Store the results
     for result in results:
         result.save(outfile)
 
 
 def get_scores(nee, res):
-    # Check the scoresheets
+    # Check the results
     results = nee.get_results()
     names = list()
 

@@ -10,11 +10,10 @@ EvalNE is an open source Python library designed for assessing and comparing the
 EvalNE can be used both as a command line tool and as an API and is compatible with Python 2 and Python 3. 
 In its current version, EvalNE can evaluate unweighted directed and undirected simple networks.
 
-EvalNE is provided under the MIT_ free software licence and is maintained by Alexandru Mara (alexandru(dot)mara(at)ugent(dot)be). The source code can be found on GitHub_ and BitBucket_. 
+EvalNE is provided under the MIT_ free software licence and is maintained by Alexandru Mara (alexandru(dot)mara(at)ugent(dot)be). The source code can be found on GitHub_. 
 
 .. _MIT: https://opensource.org/licenses/MIT
 .. _GitHub: https://github.com/Dru-Mara/EvalNE
-.. _BitBucket: https://bitbucket.org/ghentdatascience/evalne/src/master/
 
 
 See :doc:`the quickstart <quickstart>` to get started.

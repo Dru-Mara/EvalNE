@@ -57,10 +57,11 @@ def load_graph(input_path, delimiter=',', comments='#', directed=False):
     return G
 
 
-def save_graph(G, output_path, delimiter=',', write_stats=True):
+def save_graph(G, output_path, delimiter=',', write_stats=True, write_weights=False, write_dir=True):
     r"""
-    Saves a graph to a file as an edgelist. If the stats parameter is set to True the file will include
-    several lines containing the same basic graph statistics as provided by the get_stats function.
+    Saves a graph to a file as an edgelist of weighted edgelist. If the stats parameter is set to True the file
+    will include several lines containing the same basic graph statistics as provided by the get_stats function.
+    For undirected graphs, the method stores both directions of every edge.
 
     Parameters
     ----------
@@ -73,6 +74,13 @@ def save_graph(G, output_path, delimiter=',', write_stats=True):
        The string used to separate values. Default is ','.
     write_stats : bool, optional
         Sets if graph statistics should be added to the edgelist or not. Default is True.
+    write_weights : bool, optional
+        If True data will be stored as weighted edgelist (e.g. triplets src, dst, weight) otherwise as normal edgelist.
+        If the graph edges have no weight attribute and this parameter is set to True,
+        a weight of 1 will be assigned to each edge. Default is False.
+    write_dir : bool, optional
+        This option is only relevant for undirected graphs. If False, the graph will be stored with a single
+        direction of the edges. If True, both directions of edges will be stored. Default is True.
     """
     # Write the graph stats in the file if required
     if write_stats:
@@ -84,11 +92,25 @@ def save_graph(G, output_path, delimiter=',', write_stats=True):
     # Write the graph to a file and use both edge directions if graph is undirected
     if G.is_directed():
         # Store edgelist
-        nx.write_edgelist(G, f, delimiter=delimiter, data=False)
+        if write_weights:
+            J = nx.DiGraph()
+            J.add_weighted_edges_from(G.edges.data('weight', 1))
+            nx.write_weighted_edgelist(J, f, delimiter=delimiter)
+        else:
+            nx.write_edgelist(G, f, delimiter=delimiter, data=False)
     else:
-        H = nx.to_directed(G)
+        if write_dir:
+            H = nx.to_directed(G)
+            J = nx.DiGraph()
+        else:
+            H = G
+            J = nx.DiGraph()
         # Store edgelist
-        nx.write_edgelist(H, f, delimiter=delimiter, data=False)
+        if write_weights:
+            J.add_weighted_edges_from(H.edges.data('weight', 1))
+            nx.write_weighted_edgelist(J, f, delimiter=delimiter)
+        else:
+            nx.write_edgelist(H, f, delimiter=delimiter, data=False)
 
 
 def get_stats(G, output_path=None):
@@ -290,10 +312,10 @@ def read_train_test(filename, split):
     test_E_false = np.loadtxt(filenames[3], delimiter=',', dtype=int)
 
     # Transform arrays in to sets of tuples
-    train_E = set(zip(train_E[:, 0], train_E[:, 1]))
-    train_E_false = set(zip(train_E_false[:, 0], train_E_false[:, 1]))
-    test_E = set(zip(test_E[:, 0], test_E[:, 1]))
-    test_E_false = set(zip(test_E_false[:, 0], test_E_false[:, 1]))
+    #train_E = set(zip(train_E[:, 0], train_E[:, 1]))
+    #train_E_false = set(zip(train_E_false[:, 0], train_E_false[:, 1]))
+    #test_E = set(zip(test_E[:, 0], test_E[:, 1]))
+    #test_E_false = set(zip(test_E_false[:, 0], test_E_false[:, 1]))
 
     return train_E, train_E_false, test_E, test_E_false
 

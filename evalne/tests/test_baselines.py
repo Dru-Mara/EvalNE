@@ -25,7 +25,7 @@ def test_katz(nee):
     ms = score.Results(method='Katz', params={},
                        train_pred=train_pred, train_labels=nee.traintest_split.train_labels,
                        test_pred=test_pred, test_labels=nee.traintest_split.test_labels)
-    ms.pretty_print(results='test')
+    ms.pretty_print(results='test', precatk_vals=[2, 4, 6, 10, 100, 1000])
     # ms.plot()
 
     # Evaluate approx katz implementation
@@ -35,7 +35,7 @@ def test_katz(nee):
     ms = score.Results(method='Katz', params={},
                        train_pred=train_pred, train_labels=nee.traintest_split.train_labels,
                        test_pred=test_pred, test_labels=nee.traintest_split.test_labels)
-    ms.pretty_print(results='test')
+    ms.pretty_print(results='test', precatk_vals=[2, 4, 6, 10, 100, 1000])
     # ms.plot()
 
 

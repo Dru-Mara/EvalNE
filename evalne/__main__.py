@@ -38,6 +38,10 @@ def main():
 
 
 def evaluate(setup):
+    # Set the random seed
+    random.seed(setup.seed)
+    np.random.seed(setup.seed)
+
     # Get input and output paths
     inpaths = setup.inpaths
     outpaths = setup.outpaths
@@ -81,13 +85,13 @@ def evaluate(setup):
                                                    owa=setup.owa,
                                                    num_fe_train=setup.num_fe_train,
                                                    num_fe_test=setup.num_fe_test,
-                                                   seed=repeat, verbose=setup.verbose)
+                                                   split_id=repeat, verbose=setup.verbose)
 
             # Store train/test splits
             if setup.traintest_path is not None:
                 stt.store_train_test_splits(output_path=outpaths[i] + setup.traintest_path, train_E=train_E,
                                             train_E_false=train_E_false, test_E=test_E, test_E_false=test_E_false,
-                                            split=repeat)
+                                            split_id=repeat)
 
             # Evaluate baselines
             if setup.lp_baselines is not None:
@@ -97,10 +101,13 @@ def evaluate(setup):
             if setup.methods_opne is not None or setup.methods_other is not None:
                 eval_other(setup, nee)
 
+            # Write method results to one file per experiment repeat
+            # check_scores(setup, nee, repeat)
+
             # Store the results and average over the exp. repeats
             names, res = get_scores(setup, nee, res, i, repeat)
 
-            # Reset the scoresheets
+            # Reset the results list
             nee.reset_results()
 
         results.append(res)
@@ -129,7 +136,7 @@ def preprocess(setup, i):
     if setup.prep_nw_name is not None:
         # Store preprocessed graph to a file
         pp.save_graph(G, output_path=setup.outpaths[i] + setup.prep_nw_name, delimiter=setup.delimiter,
-                      write_stats=setup.write_stats)
+                      write_stats=setup.write_stats, write_weights=False, write_dir=True)
 
     # Return the preprocessed graph
     return G
@@ -173,7 +180,9 @@ def eval_other(setup, nee):
             nee.evaluate_cmd(method_name=setup.names_other[i], method_type=setup.embtype_other[i],
                              command=setup.methods_other[i], edge_embedding_methods=setup.edge_embedding_methods,
                              input_delim=setup.input_delim_other[i], output_delim=setup.output_delim_other[i],
-                             tune_params=setup.tune_params_other[i], maximize=setup.maximize, verbose=setup.verbose)
+                             tune_params=setup.tune_params_other[i], maximize=setup.maximize,
+                             write_weights=setup.write_weights_other[i], write_dir=setup.write_dir_other[i],
+                             verbose=setup.verbose)
 
     if setup.methods_opne is not None:
         # Evaluate methods from OpenNE
@@ -182,11 +191,12 @@ def eval_other(setup, nee):
             command = setup.methods_opne[i] + " --input {} --output {} --representation-size {}"
             nee.evaluate_cmd(method_name=setup.names_opne[i], method_type='ne', command=command, input_delim=' ',
                              edge_embedding_methods=setup.edge_embedding_methods, output_delim=' ',
-                             tune_params=setup.tune_params_opne[i], maximize=setup.maximize, verbose=setup.verbose)
+                             tune_params=setup.tune_params_opne[i], maximize=setup.maximize, write_weights=False,
+                             write_dir=True, verbose=setup.verbose)
 
 
 def get_scores(setup, nee, res, nw_indx, repeat):
-    # Check the scoresheets
+    # Check the method results
     results = nee.get_results()
     names = list()
 
@@ -256,7 +266,17 @@ def write_output(setup, results, method_names):
     f.close()
 
 
+def check_scores(setup, nee, repeat):
+    # Create a file for the results (one for each repetition of the exp)
+    outfile = "./eval_output" + "_rep_" + str(repeat) + ".txt"
+
+    # Check the results
+    results = nee.get_results()
+
+    # Store the results
+    for result in results:
+        result.save(outfile)
+
+
 if __name__ == "__main__":
-    random.seed(42)
-    np.random.seed(42)
     main()

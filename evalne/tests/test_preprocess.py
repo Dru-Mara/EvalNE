@@ -59,10 +59,10 @@ def test_split():
     dataset_path = "./data/"
     output_path = "./data/"
     test_name = "network.edgelist"
-    subgraph_size = 1000
+    subgraph_size = 400
 
     # Load a graph
-    G = pp.load_graph(dataset_path + test_name, delimiter="\t", comments='#', directed=True)
+    G = pp.load_graph(dataset_path + test_name, delimiter=",", comments='#', directed=True)
 
     # Restrict graph to a sub-graph of 'subgraph_size' nodes
     SG = G.subgraph(random.sample(G.nodes, subgraph_size)).copy()
@@ -74,15 +74,17 @@ def test_split():
     pp.save_graph(SG, output_path + "prep_graph.edgelist", delimiter=",")
 
     # Alternatively, train/test splits can be computed one at a time
-    train_E, test_E = stt.split_train_test(SG, train_frac=0.51, seed=99)
+    train_E, test_E = stt.split_train_test(SG, train_frac=1.0)
 
-    print(train_E)
+    #print(train_E)
 
     # Compute set of false edges
-    train_E_false, test_E_false = stt.generate_false_edges_owa(SG, train_E=train_E, test_E=test_E, num_fe_train=None,
-                                                               num_fe_test=None, seed=99)
+    train_E_false, test_E_false = stt.generate_false_edges_owa(SG, train_E=train_E, test_E=test_E, num_fe_train=0,
+                                                               num_fe_test=100)
     # train_E_false, test_E_false = stt.generate_false_edges_owa(G, train_E=train_E, test_E=test_E, num_fe_train=None,
     #                                                          num_fe_test=None, seed=99)
+
+    stt.store_train_test_splits('./', train_E, train_E_false, test_E, test_E_false, split_id=0)
 
 
 if __name__ == "__main__":
@@ -93,6 +95,6 @@ if __name__ == "__main__":
     # print(nx.__version__)
     # print(sk.__version__)
     test()
-    test_split()
+    #test_split()
 
 

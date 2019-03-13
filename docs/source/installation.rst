@@ -14,7 +14,7 @@ EvalNE depends on the following open-source packages:
 Linux/MacOS
 -----------
 
-Before installing EvalNE make sure that pip and python-tk packages are installed 
+Before installing EvalNE make sure that **pip** and **python-tk** packages are installed 
 on your system, this can be done by running:
 
 .. code-block:: console

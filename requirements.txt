@@ -1,5 +1,4 @@
 matplotlib
-sklearn
 numpy==1.15.1
 scipy
 networkx>=2.2

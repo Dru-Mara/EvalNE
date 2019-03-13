@@ -78,57 +78,65 @@ present a very basic example, for more complete ones we refer the user to the
 
 ::
 
-    from evalne.evaluation import evaluator
-    from evalne.preprocessing import preprocess as pp
-    
-    # Load and preprocess the network
-    G = pp.load_graph('./evalne/tests/data/network.edgelist')
-    G, _ = pp.prep_graph(G)
-    
-    # Create an evaluator and generate train/test edge split
-    nee = evaluator.Evaluator()
-    _ = nee.traintest_split.compute_splits(G)
-    
-    # Set the baselines
-    methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient']
-    
-    # Evaluate baselines
-    nee.evaluate_baseline(methods=methods)
-    
-    # Set embedding methods from OpenNE
-    methods = ['node2vec', 'deepwalk', 'GraRep']
-    commands = [
-        'python -m openne --method node2vec --graph-format edgelist --p 1 --q 1',
-        'python -m openne --method deepWalk --graph-format edgelist --number-walks 40',
-        'python -m openne --method grarep --graph-format edgelist --epochs 10']
-    edge_emb = ['average', 'hadamard']
-    
-    # Evaluate embedding methods
-    for i in range(len(methods)):
-        command = commands[i] + " --input {} --output {} --representation-size {}"
-        nee.evaluate_ne_cmd(method_name=methods[i], command=command, 
-                            edge_embedding_methods=edge_emb, input_delim=' ', emb_delim=' ')
+	from evalne.evaluation import evaluator
+	from evalne.preprocessing import preprocess as pp
 
-    # Get output
-    results = nee.get_results()
-    for result in results:
-        result.pretty_print()
+	# Load and preprocess the network
+	G = pp.load_graph('../evalne/tests/data/network.edgelist')
+	G, _ = pp.prep_graph(G)
+
+	# Create an evaluator and generate train/test edge split
+	nee = evaluator.Evaluator()
+	_ = nee.traintest_split.compute_splits(G)
+
+	# Set the baselines
+	methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient']
+
+	# Evaluate baselines
+	nee.evaluate_baseline(methods=methods)
+
+	try:
+	    # Check if OpenNE is installed
+	    import openne
+
+	    # Set embedding methods from OpenNE
+	    methods = ['node2vec', 'deepwalk', 'GraRep']
+	    commands = [
+		'python -m openne --method node2vec --graph-format edgelist --p 1 --q 1',
+		'python -m openne --method deepWalk --graph-format edgelist --number-walks 40',
+		'python -m openne --method grarep --graph-format edgelist --epochs 10']
+	    edge_emb = ['average', 'hadamard']
+
+	    # Evaluate embedding methods
+	    for i in range(len(methods)):
+		command = commands[i] + " --input {} --output {} --representation-size {}"
+		nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+		                 edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+
+	except ImportError:
+	    print("The OpenNE library is not installed. Reporting results only for the baselines...")
+	    pass
+
+	# Get output
+	results = nee.get_results()
+	for result in results:
+	    result.pretty_print()
     
 
 Output
 ------
 
 The library can provide two types of outputs, depending on the value of the SCORES option
-of the configuration file. If the keyword 'all' is specified, all the available scores for 
-every algorithm on each network and experiment repeat will be stored. These results will 
-be written to files named `eval_output_rep_x.txt` where `x` is an integer corresponding 
-to each repeat ID. These files will be stored in the corresponding output folders as
-specified in the OUTPATHS option of the configuration file used.
+of the configuration file. If the keyword *all* is specified, the library will generate a 
+file named `eval_output.txt` containing for each method and network analysed all the 
+metrics available (auroc, precision, f-score, etc.). If more than one experiment repeat 
+is requested the values reported will be the average over all the repeats. The output 
+file will be located in the same path from which the evaluation was run.
 
-Setting the SCORES option to `%(maximize)` will generate a tabular output and write it
-to a file named `eval_output.txt`. This file can be located in the same path from where
-the execution was run and will contain a table of Alg.\Network which will be populated
-with the averaged results over all the experiment repeats. 
+Setting the SCORES option to `%(maximize)` will generate a similar output file as before.
+The content of this file, however, will be a table (Alg.\Network) containing exclusively 
+the score specified in the MAXIMIZE option for each combination of method and network
+averaged over all experiment repeats. 
 
 Additionally, if the option TRAINTEST_PATH contains a valid filename, EvalNE will create
 a file with that name under each of the OUTPATHS provided. In each of these paths the

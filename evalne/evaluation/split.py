@@ -4,8 +4,6 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-# TODO: Split object should take as input same as train_frac, fast_split, owa, num_fe_train, num_fe_test,
-
 from __future__ import division
 
 import networkx as nx
@@ -33,7 +31,7 @@ class EvalSplit(object):
         self._owa = None
         self._num_fe_train = None
         self._num_fe_test = None
-        self._seed = None
+        self._split_id = None
 
     @property
     def train_edges(self):
@@ -86,11 +84,11 @@ class EvalSplit(object):
         return self._num_fe_test
 
     @property
-    def seed(self):
-        """Returns a id that identifies this particular split."""
-        return self._seed
+    def split_id(self):
+        """Returns a ID that identifies this particular split."""
+        return self._split_id
 
-    def set_splits(self, train_E, train_E_false, test_E, test_E_false, directed, verbose=False):
+    def set_splits(self, train_E, train_E_false, test_E, test_E_false, directed, split_id=0, verbose=False):
         """
         This method allows the user to set the train/test true and false edge sets manually.
         All sets are required as well as a parameter indicating if the graph is directed or not.
@@ -108,6 +106,8 @@ class EvalSplit(object):
             Set of test non-edges
         directed : bool
             True if the splits correspond to a directed graph, false otherwise
+        split_id : int, optional
+            An ID that identifies this particular train/test split.
         verbose : bool, optional
             If True print progress info. Default is False.
         """
@@ -154,6 +154,7 @@ class EvalSplit(object):
             self._train_frac = len(train_E) / (len(train_E) + len(test_E))
             self._num_fe_train = len(train_E_false)
             self._num_fe_test = len(test_E_false)
+            self._split_id = split_id
         else:
             raise ValueError("All sets of edges are required!")
 
@@ -161,7 +162,7 @@ class EvalSplit(object):
         if verbose:
             print("Train/test splits ready.")
 
-    def read_splits(self, filename, split, directed, verbose=False):
+    def read_splits(self, filename, split_id, directed, verbose=False):
         """
         Reads true and false train and test edge splits from file.
 
@@ -169,7 +170,7 @@ class EvalSplit(object):
         ----------
         filename : string
             The filename shared by all edge splits as given by the 'store_train_test_splits' method
-        split : int
+        split_id : int
             The ID of the edge splits to read. As provided by the 'store_train_test_splits' method
         directed : bool
             True if the splits correspond to a directed graph, false otherwise
@@ -177,15 +178,17 @@ class EvalSplit(object):
             If True print progress info. Default is False.
         """
         # Read edge sets from file
-        train_E, train_E_false, test_E, test_E_false = pp.read_train_test(filename, split)
+        train_E, train_E_false, test_E, test_E_false = pp.read_train_test(filename, split_id)
 
-        self._seed = split
+        # Reset some unknown parameters of the split
+        self._fast_split = None
+        self._owa = None
 
         # Set edge sets to new values
-        self.set_splits(train_E, train_E_false, test_E, test_E_false, directed, verbose)
+        self.set_splits(train_E, train_E_false, test_E, test_E_false, directed, split_id, verbose)
 
     def compute_splits(self, G, train_frac=0.51, fast_split=True, owa=True, num_fe_train=None, num_fe_test=None,
-                       seed=0, verbose=False):
+                       split_id=0, verbose=False):
         """
         Computes true and false train and test edge splits according to the given parameters.
         The sets of edges computed are both stored as properties of this object and returned from the method.
@@ -207,8 +210,8 @@ class EvalSplit(object):
             The number of train false edges to generate. Default is same number as true train edges.
         num_fe_test : int, optional
             The number of test false edges to generate. Default is same number as true test edges.
-        seed : int, optional
-            The id to be asigned to the train/test splits generated. Default is 0.
+        split_id : int, optional
+            The id to be assigned to the train/test splits generated. Default is 0.
         verbose : bool, optional
             If True print progress info. Default is False.
 
@@ -225,25 +228,24 @@ class EvalSplit(object):
         """
         # Compute train/test split
         if fast_split:
-            train_E, test_E = stt.split_train_test(G, train_frac, seed)
+            train_E, test_E = stt.split_train_test(G, train_frac)
         else:
-            train_E, test_E = stt.naive_split_train_test(G, train_frac, seed)
+            train_E, test_E = stt.naive_split_train_test(G, train_frac)
 
         # Compute false edges
         if owa:
             train_E_false, test_E_false = stt.generate_false_edges_owa(G, train_E, test_E,
-                                                                       num_fe_train, num_fe_test, seed)
+                                                                       num_fe_train, num_fe_test)
         else:
             train_E_false, test_E_false = stt.generate_false_edges_cwa(G, train_E, test_E,
-                                                                       num_fe_train, num_fe_test, seed)
+                                                                       num_fe_train, num_fe_test)
 
-        # Initialize some parameters of the evaluator
+        # Initialize some parameters of the split
         self._fast_split = fast_split
         self._owa = owa
-        self._seed = seed
 
         # Set edge sets to new values
-        self.set_splits(train_E, train_E_false, test_E, test_E_false, G.is_directed(), verbose)
+        self.set_splits(train_E, train_E_false, test_E, test_E_false, G.is_directed(), split_id, verbose)
 
         return train_E, train_E_false, test_E, test_E_false
 
@@ -257,7 +259,7 @@ class EvalSplit(object):
             The split parameters as a dictionary of parameter : value
         """
         params = {"train_frac": self.train_frac, "fast_split": self.fast_split, "owa": self.owa,
-                  "num_fe_train": self.num_fe_train, "num_fe_test": self.num_fe_test, "seed": self.seed}
+                  "num_fe_train": self.num_fe_train, "num_fe_test": self.num_fe_test, "split_id": self.split_id}
         return params
 
     def get_data(self):
@@ -277,7 +279,7 @@ class EvalSplit(object):
         """
         return self.train_edges, self.train_labels, self.test_edges, self.test_labels
 
-    def save_tr_graph(self, output_path, delimiter, write_stats=False):
+    def save_tr_graph(self, output_path, delimiter, write_stats=False, write_weights=False, write_dir=True):
         """
         Saves the graph to a file.
 
@@ -289,8 +291,16 @@ class EvalSplit(object):
             The string used to separate values. Default is .
         write_stats : bool, optional
             Sets if graph statistics should be added to the edgelist or not. Default is False.
+        write_weights : bool, optional
+            If True data will be stored as weighted edgelist (e.g. triplets src, dst, weight) otherwise as normal
+            edgelist. If the graph edges have no weight attribute and this parameter is set to True,
+            a weight of 1 will be assigned to each edge. Default is False.
+        write_dir : bool, optional
+            This option is only relevant for undirected graphs. If False, the train graph will be stored with a single
+            direction of the edges. If True, both directions of edges will be stored. Default is True.
         """
-        pp.save_graph(self._TG, output_path=output_path, delimiter=delimiter, write_stats=write_stats)
+        pp.save_graph(self._TG, output_path=output_path, delimiter=delimiter, write_stats=write_stats,
+                      write_weights=write_weights, write_dir=write_dir)
 
     def store_edgelists(self, train_path, test_path):
         r"""

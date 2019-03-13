@@ -88,7 +88,7 @@ def _broder_alg(G, E):
     return train_E
 
 
-def _compute_one_split(G, output_path, owa=True, train_frac=0.51, num_fe_train=None, num_fe_test=None, seed=0):
+def _compute_one_split(G, output_path, owa=True, train_frac=0.51, num_fe_train=None, num_fe_test=None, split_id=0):
     r"""
     Computes one split of train/test edges as well as non-edges from an input graph and writes the data to files.
     The train sets are always connected / weakly connected and span all nodes of the input graph.
@@ -111,20 +111,20 @@ def _compute_one_split(G, output_path, owa=True, train_frac=0.51, num_fe_train=N
        The number of train false edges to generate. Default is same number as true train edges.
     num_fe_test : int, optional
        The number of test false edges to generate. Default is same number as true test edges.
-    seed : int, optional
-        The ID of train/test split and also the random seed for the random number generator. Default is 0.
+    split_id : int, optional
+        The ID of train/test split. Default is 0.
     """
     # Generate train and test edge splits
-    train_E, test_E = split_train_test(G, train_frac, seed)
+    train_E, test_E = split_train_test(G, train_frac)
 
     # Generate the train/test false edges
     if owa:
-        train_E_false, test_E_false = generate_false_edges_owa(G, train_E, test_E, num_fe_train, num_fe_test, seed)
+        train_E_false, test_E_false = generate_false_edges_owa(G, train_E, test_E, num_fe_train, num_fe_test)
     else:
-        train_E_false, test_E_false = generate_false_edges_cwa(G, train_E, test_E, num_fe_train, num_fe_test, seed)
+        train_E_false, test_E_false = generate_false_edges_cwa(G, train_E, test_E, num_fe_train, num_fe_test)
 
     #  Write the computed split to a file
-    store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_false, seed)
+    store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_false, split_id)
 
 
 def compute_splits_parallel(G, output_path, owa=True, train_frac=0.51, num_fe_train=None, num_fe_test=None,
@@ -161,7 +161,7 @@ def compute_splits_parallel(G, output_path, owa=True, train_frac=0.51, num_fe_tr
         path_func(G, output_path, owa, train_frac, num_fe_train, num_fe_test, split) for split in range(num_splits))
 
 
-def split_train_test(G, train_frac=0.51, seed=0):
+def split_train_test(G, train_frac=0.51):
     r"""
     Computes one train/test split of edges from an input graph and returns the results.
     The train set will be (weakly) connected and span all nodes of the input graph.
@@ -174,8 +174,6 @@ def split_train_test(G, train_frac=0.51, seed=0):
     train_frac : float, optional
        The relative size (in range (0.0, 1.0]) of the train set with respect to the total number of edges in the graph.
        Default is 0.51.
-    seed : int, optional
-       The ID of train/test split and also the random seed for the random number generator. Default is 0.
 
     Returns
     -------
@@ -188,9 +186,6 @@ def split_train_test(G, train_frac=0.51, seed=0):
     _sanity_check(G)
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
-
-    # Initialize random number generator
-    random.seed(seed)
 
     # Create a set of all edges in G
     E = set(G.edges)
@@ -225,6 +220,7 @@ def split_train_test(G, train_frac=0.51, seed=0):
 
     # Perform some simple checks
     assert E == (test_E | train_E)
+    assert len(E) == len(test_E) + len(train_E)
     if num_toadd > 0:
         assert num_train_E == len(train_E)
 
@@ -232,7 +228,7 @@ def split_train_test(G, train_frac=0.51, seed=0):
     return train_E, test_E
 
 
-def naive_split_train_test(G, train_frac=0.51, seed=0):
+def naive_split_train_test(G, train_frac=0.51):
     r"""
     Computes one train/test split of edges from an input graph and returns the results.
     The sets are computed using the naive approach that checks connectivity of the graph
@@ -247,8 +243,6 @@ def naive_split_train_test(G, train_frac=0.51, seed=0):
     train_frac : float, optional
         The relative size (in range (0.0, 1.0]) of the train set with respect to the total number of edges in the graph.
         Default is 0.51.
-    seed : int, optional
-        The ID of train/test split and also the random seed for the random number generator. Default is 0.
 
     Returns
     -------
@@ -261,9 +255,6 @@ def naive_split_train_test(G, train_frac=0.51, seed=0):
     _sanity_check(G)
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
-
-    # Initialize random number generator
-    np.random.seed(seed)
 
     # Is directed
     directed = G.is_directed()
@@ -320,7 +311,7 @@ def naive_split_train_test(G, train_frac=0.51, seed=0):
     return train_E, test_E
 
 
-def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=None, seed=0):
+def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=None):
     r"""
     This method generates false train and test edges for both directed and undirected graphs.
     The train and test sets are non overlapping.
@@ -340,8 +331,6 @@ def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=
        The number of train false edges to generate. Default is same number as true train edges.
     num_fe_test : int, optional
        The number of test false edges to generate. Default is same number as true test edges.
-    seed : int, optional
-       The ID of train/test split and also the random seed for the random number generator. Default is 0.
 
     Returns
     -------
@@ -352,9 +341,6 @@ def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
-
-    # Initialize random number generator
-    random.seed(seed)
 
     # Create a set of vertices
     V = set(G.nodes)
@@ -409,14 +395,11 @@ def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=
     assert train_E_false.isdisjoint(train_E)
     assert test_E_false.isdisjoint(train_E | test_E)
 
-    # Print intersection between Train/Test false edges
-    # print "Inters. of false_train/real_test sets for split ", seed, ": ", len(train_E_false & test_E)
-
     # Return the sets of false edges
     return train_E_false, test_E_false
 
 
-def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=None, seed=0):
+def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=None):
     r"""
     This method generates false train and test edges for both directed and undirected graphs.
     The train and test sets are non overlapping.
@@ -437,8 +420,6 @@ def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=
        The number of train false edges to generate. Default is same number as true train edges.
     num_fe_test : int, optional
        The number of test false edges to generate. Default is same number as true test edges.
-    seed : int, optional
-       The ID of train/test split and also the random seed for the random number generator. Default is 0.
 
     Returns
     -------
@@ -449,9 +430,6 @@ def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
-
-    # Initialize random number generator
-    random.seed(seed)
 
     # Create a set of vertices
     V = set(G.nodes)
@@ -472,7 +450,8 @@ def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=
         if num_fe_train + num_fe_test > max_nonedges:
             warnings.warn('Too many false edges required in train+test! '
                           'Using maximum number of false test edges available: {}'.format(max_nonedges - num_fe_train))
-            num_fe_test = max_nonedges - num_fe_train
+            # num_fe_test = max_nonedges - num_fe_train
+            return _getall_false_edges(G, (1.0*num_fe_train)/max_nonedges)
 
     # Create sets to store the false edges
     train_E_false = set()
@@ -507,10 +486,21 @@ def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=
     assert train_E_false.isdisjoint(train_E | test_E)
     assert test_E_false.isdisjoint(train_E | test_E)
 
-    # Print intersection between Train/Test false edges
-    # print "Inters. of false_train/real_test sets for split ", seed, ": ", len(train_E_false & test_E)
-    
     # Return the sets of false edges
+    return train_E_false, test_E_false
+
+
+def _getall_false_edges(G, fe_train_frac):
+    print("Generating all non-edges and splitting them in train and test...")
+    train_E_false = list()
+    test_E_false = list()
+    for e in nx.non_edges(G):
+        r = random.uniform(0, 1)
+        if r <= fe_train_frac:
+            train_E_false.append(e)
+        else:
+            test_E_false.append(e)
+
     return train_E_false, test_E_false
 
 
@@ -559,7 +549,7 @@ def redges_false(train_E, test_E, output_path=None):
     return train_redges_false, test_redges_false
 
 
-def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_false, split=0):
+def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_false, split_id=0):
     r"""
     Writes the sets of true and false edges to files in the provided path. All files will share
     the same split number as an identifier.
@@ -576,7 +566,7 @@ def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_
        Set of test edges
     test_E_false : set
        Set of test non-edges
-    split : int, optional
+    split_id : int, optional
        The ID of train/test split to be stored. Default is 0.
 
     Returns
@@ -590,14 +580,14 @@ def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_
     test_E = np.array([list(edge_tuple) for edge_tuple in test_E])
     test_E_false = np.array([list(edge_tuple) for edge_tuple in test_E_false])
 
-    filenames = ("{}_trE_{}.csv".format(output_path, split), "{}_negTrE_{}.csv".format(output_path, split),
-                 "{}_teE_{}.csv".format(output_path, split), "{}_negTeE_{}.csv".format(output_path, split))
+    filenames = ("{}_trE_{}.csv".format(output_path, split_id), "{}_negTrE_{}.csv".format(output_path, split_id),
+                 "{}_teE_{}.csv".format(output_path, split_id), "{}_negTeE_{}.csv".format(output_path, split_id))
 
     # Save the splits in different files
-    np.savetxt(filenames[0], train_E, delimiter=',', fmt='%d')
-    np.savetxt(filenames[1], train_E_false, delimiter=',', fmt='%d')
-    np.savetxt(filenames[2], test_E, delimiter=',', fmt='%d')
-    np.savetxt(filenames[3], test_E_false, delimiter=',', fmt='%d')
+    np.savetxt(fname=filenames[0], X=train_E, delimiter=',', fmt='%d')
+    np.savetxt(fname=filenames[1], X=train_E_false, delimiter=',', fmt='%d')
+    np.savetxt(fname=filenames[2], X=test_E, delimiter=',', fmt='%d')
+    np.savetxt(fname=filenames[3], X=test_E_false, delimiter=',', fmt='%d')
 
     # Return the names given to the 4 files where data is stored
     return filenames
@@ -613,9 +603,9 @@ def store_edgelists(train_path, test_path, train_edges, test_edges):
        Indicates the path where the train data will be stored.
     test_path : string
        Indicates the path where the test data will be stored.
-    train_edges : set
+    train_edges : array_like
        Set of train true and false edges
-    test_edges : set
+    test_edges : array_like
        Set of test true and false edges
     """
     # Convert edge-lists to numpy arrays
@@ -623,8 +613,8 @@ def store_edgelists(train_path, test_path, train_edges, test_edges):
     test_edges = np.array([list(edge_tuple) for edge_tuple in test_edges])
 
     # Save the splits in different files
-    np.savetxt(train_path, train_edges, delimiter=',', fmt='%d')
-    np.savetxt(test_path, test_edges, delimiter=',', fmt='%d')
+    np.savetxt(fname=train_path, X=train_edges, delimiter=',', fmt='%d')
+    np.savetxt(fname=test_path, X=test_edges, delimiter=',', fmt='%d')
 
 
 def check_overlap(filename, num_sets):

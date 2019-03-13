@@ -28,7 +28,6 @@ def average(X, ebunch):
     edge_embeds : matrix
         A Numpy matrix containing the edge embeddings in the same order as ebunch.
     """
-    # edge_embeds = np.zeros((len(ebunch), len(X.values()[0])))
     edge_embeds = np.zeros((len(ebunch), len(X[list(X.keys())[0]])))
     i = 0
     for edge in ebunch:
@@ -114,7 +113,7 @@ def weighted_l2(X, ebunch):
 
 def compute_edge_embeddings(X, ebunch, method='hadamard'):
     r"""
-    Helper method to call any of the edge embedding methods using a simple parameter.
+    Helper method to call any of the edge embedding methods using a simple string parameter.
 
     Parameters
     ----------

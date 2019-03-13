@@ -237,6 +237,7 @@ class EvalSetup(object):
     @property
     def lp_model(self):
         return LogisticRegression(solver='liblinear')
+        # return LogisticRegressionCV(Cs=10, cv=10, penalty='l2', scoring='roc_auc', solver='lbfgs', max_iter=200)
 
     @property
     def exp_repeats(self):
@@ -249,6 +250,14 @@ class EvalSetup(object):
     @property
     def verbose(self):
         return self._config.getboolean('GENERAL', 'verbose')
+
+    @property
+    def seed(self):
+        val = self._config.get('GENERAL', 'seed')
+        if val == '' or val == 'None':
+            return None
+        else:
+            return int(val)
 
     @property
     def names(self):
@@ -353,6 +362,14 @@ class EvalSetup(object):
     @property
     def embtype_other(self):
         return self.getlist('OTHER METHODS', 'embtype_other', str)
+
+    @property
+    def write_weights_other(self):
+        return self.getboollist('OTHER METHODS', 'write_weights_other')
+
+    @property
+    def write_dir_other(self):
+        return self.getboollist('OTHER METHODS', 'write_dir_other')
 
     @property
     def methods_other(self):
@@ -470,7 +487,7 @@ class Evaluator(object):
                 self._results.append(results)
 
     def evaluate_cmd(self, method_name, method_type, command, edge_embedding_methods, input_delim, output_delim,
-                     tune_params=None, maximize='auroc', verbose=True):
+                     tune_params=None, maximize='auroc', write_weights=False, write_dir=False, verbose=True):
         r"""
         Evaluates an embedding method and tunes its parameters from the method's command line call string. This
         function can evaluate node embedding, edge embedding or end to end embedding methods.
@@ -509,6 +526,13 @@ class Evaluator(object):
             A string containing all the parameters to be tuned and their values.
         maximize : basestring
             The score to maximize while performing parameter tuning.
+        write_weights : bool, optional
+            If True the train graph passed to the embedding methods will be stored as weighted edgelist
+            (e.g. triplets src, dst, weight) otherwise as normal edgelist. If the graph edges have no weight attribute
+            and this parameter is set to True, a weight of 1 will be assigned to each edge. Default is False.
+        write_dir : bool, optional
+            This option is only relevant for undirected graphs. If False, the train graph will be stored with a single
+            direction of the edges. If True, both directions of edges will be stored. Default is False.
         verbose : bool
             A parameter to control the amount of screen output.
         """
@@ -546,12 +570,12 @@ class Evaluator(object):
 
             # Prepare validation data
             valid_split = split.EvalSplit()
-            valid_split.compute_splits(self.traintest_split.TG, train_frac=self.traintest_split.train_frac,
+            valid_split.compute_splits(self.traintest_split.TG, train_frac=0.9,
                                        fast_split=self.traintest_split.fast_split,
                                        owa=self.traintest_split.owa,
                                        num_fe_train=self.traintest_split.num_fe_train,
                                        num_fe_test=self.traintest_split.num_fe_test,
-                                       seed=self.traintest_split.seed, verbose=verbose)
+                                       split_id=self.traintest_split.split_id, verbose=verbose)
 
             # If there is only one parameter we treat it separately
             if len(param_names) == 1:
@@ -565,10 +589,11 @@ class Evaluator(object):
                     # Call the corresponding evaluation method
                     if method_type == 'ne':
                         results = self._evaluate_ne_cmd(valid_split, method_name, ext_command, edge_embedding_methods,
-                                                        input_delim, output_delim, verbose)
+                                                        input_delim, output_delim, write_weights, write_dir, verbose)
                     elif method_type == 'ee' or method_type == 'e2e':
                         results = self._evaluate_ee_e2e_cmd(valid_split, method_name, method_type, ext_command,
-                                                            input_delim, output_delim, verbose)
+                                                            input_delim, output_delim, write_weights, write_dir,
+                                                            verbose)
                     else:
                         raise ValueError('Method type {} unknown!'.format(method_type))
                     results = list(results)
@@ -599,10 +624,11 @@ class Evaluator(object):
                     # Call the corresponding evaluation method
                     if method_type == 'ne':
                         results = self._evaluate_ne_cmd(valid_split, method_name, ext_command, edge_embedding_methods,
-                                                        input_delim, output_delim, verbose)
+                                                        input_delim, output_delim, write_weights, write_dir, verbose)
                     elif method_type == 'ee' or method_type == 'e2e':
                         results = self._evaluate_ee_e2e_cmd(valid_split, method_name, method_type, ext_command,
-                                                            input_delim, output_delim, verbose)
+                                                            input_delim, output_delim, write_weights, write_dir,
+                                                            verbose)
                     else:
                         raise ValueError('Method type {} unknown!'.format(method_type))
                     results = list(results)
@@ -628,10 +654,11 @@ class Evaluator(object):
                 if method_type == 'ne':
                     results.extend(self._evaluate_ne_cmd(self.traintest_split, method_name, ext_command,
                                                          [edge_embedding_methods[i]], input_delim, output_delim,
-                                                         verbose))
+                                                         write_weights, write_dir, verbose))
                 elif method_type == 'ee' or method_type == 'e2e':
                     results.extend(self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type,
-                                                             ext_command, input_delim, output_delim, verbose))
+                                                             ext_command, input_delim, output_delim, write_weights,
+                                                             write_dir, verbose))
                 else:
                     raise ValueError('Method type {} unknown!'.format(method_type))
 
@@ -648,11 +675,11 @@ class Evaluator(object):
             # No parameter tuning is needed
             # Call the corresponding evaluation method
             if method_type == 'ne':
-                results = self._evaluate_ne_cmd(self.traintest_split, method_name, command,
-                                                edge_embedding_methods, input_delim, output_delim, verbose)
+                results = self._evaluate_ne_cmd(self.traintest_split, method_name, command, edge_embedding_methods,
+                                                input_delim, output_delim, write_weights, write_dir, verbose)
             elif method_type == 'ee' or method_type == 'e2e':
                 results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type, command,
-                                                    input_delim, output_delim, verbose)
+                                                    input_delim, output_delim, write_weights, write_dir, verbose)
             else:
                 raise ValueError('Method type {} unknown!'.format(method_type))
 
@@ -660,7 +687,7 @@ class Evaluator(object):
             self._results.extend(results)
 
     def _evaluate_ne_cmd(self, data_split, method_name, command, edge_embedding_methods, input_delim, output_delim,
-                         verbose):
+                         write_weights, write_dir, verbose):
         """
         The actual implementation of the node embedding evaluation. Stores the train graph as an edgelist to a
         temporal file and provides it as input to the method evaluated. Performs the command line call and reads
@@ -676,7 +703,8 @@ class Evaluator(object):
         tmpemb = './emb.tmp'
 
         # Write the train data to a file
-        data_split.save_tr_graph(tmpedg, delimiter=input_delim)
+        data_split.save_tr_graph(tmpedg, delimiter=input_delim, write_stats=False,
+                                 write_weights=write_weights, write_dir=write_dir)
 
         # Add the input, output and embedding dimensionality to the command
         command = command.format(tmpedg, tmpemb, self.dim)
@@ -702,13 +730,23 @@ class Evaluator(object):
                                  '\nExpected num. node embeddings: {} '
                                  '\nObtained num. node embeddings: {}'
                                  .format(method_name, len(data_split.TG.nodes), num_vectors))
+            elif emb_skiprows > 0:
+                warnings.warn('Found {} more lines in the file than expected. Will consider these lines part of the '
+                              'header and ignore them... Expected num_lines {}, obtained lines {}.'
+                              .format(emb_skiprows, len(data_split.TG.nodes), num_vectors), Warning)
 
             # Read the embeddings
             X = np.genfromtxt(tmpemb, delimiter=output_delim, dtype=float, skip_header=emb_skiprows, autostrip=True)
 
+            if X.ndim == 1:
+                raise ValueError('Error encountered while reading node embeddings for method {}. '
+                                 'Please check the output delimiter for the method, this value is probably incorrect.'
+                                 .format(method_name))
+
             if X.shape[1] == self.dim:
-                # Assume embeddings given as matrix [X_0, X_1, ..., X_D] where row number is node id
-                keys = map(str, range(len(X)))
+                # Assume embeddings given as matrix [X_0, X_1, ..., X_D] where rows correspond to sorted node id
+                keys = map(str, sorted(data_split.TG.nodes))
+                # keys = map(str, range(len(X)))
                 X = dict(zip(keys, X))
             elif X.shape[1] == self.dim + 1:
                 warnings.warn('Output provided by method {} contains {} columns, {} expected!'
@@ -739,6 +777,7 @@ class Evaluator(object):
             raise
 
         finally:
+            pass
             # Delete the temporal files
             os.remove('./edgelist.tmp')
             if os.path.isfile('./emb.tmp'):
@@ -746,7 +785,8 @@ class Evaluator(object):
             if os.path.isfile('./emb.tmp.txt'):
                 os.remove('./emb.tmp.txt')
 
-    def _evaluate_ee_e2e_cmd(self, data_split, method_name, method_type, command, input_delim, output_delim, verbose):
+    def _evaluate_ee_e2e_cmd(self, data_split, method_name, method_type, command, input_delim, output_delim,
+                             write_weights, write_dir, verbose):
         """
         The actual implementation of the edge embedding and end to end evaluation. Stores the train graph as an
         edgelist to a temporal file and provides it as input to the method evaluated together with the train and
@@ -781,7 +821,8 @@ class Evaluator(object):
                              .format(method_name))
 
         # Write the train data to a file
-        data_split.save_tr_graph(tmpedg, delimiter=input_delim)
+        data_split.save_tr_graph(tmpedg, delimiter=input_delim, write_stats=False,
+                                 write_weights=write_weights, write_dir=write_dir)
 
         # Write the train and test edgelists to files
         if placeholders == 4:
@@ -810,6 +851,11 @@ class Evaluator(object):
                                      '\nObtained num. embeddings/predictions: {}'
                                      .format(method_name, len(data_split.train_edges) + len(data_split.test_edges),
                                              num_tr_out))
+                elif skiprows > 0:
+                    warnings.warn('Found {} more lines in the output file than expected. Will consider these lines part'
+                                  ' of the header and ignore them... Expected num_lines {}, obtained num lines {}.'
+                                  .format(skiprows, num_tr_out,
+                                          (len(data_split.train_edges) + len(data_split.test_edges))), Warning)
 
                 # Read the embeddings/predictions
                 out = np.genfromtxt(tmp_tr_out, delimiter=output_delim, dtype=float, skip_header=skiprows,
@@ -853,6 +899,14 @@ class Evaluator(object):
                                      '\nObtained num. test predictions/embeddings {}'
                                      .format(method_name, len(data_split.train_edges), num_tr_out,
                                              len(data_split.test_edges), num_te_out))
+                elif tr_skiprows > 0:
+                    warnings.warn('Found {} more lines in the train file than expected. Will consider these lines part '
+                                  'of the header and ignore them... Expected num_lines {}, obtained num lines {}.'
+                                  .format(tr_skiprows, num_tr_out, len(data_split.train_edges)), Warning)
+                elif te_skiprows > 0:
+                    warnings.warn('Found {} more lines in the test file than expected. Will consider these lines part '
+                                  'of the header and ignore them... Expected num_lines {}, obtained num lines {}.'
+                                  .format(te_skiprows, num_te_out, len(data_split.test_edges)), Warning)
 
                 # Read the embeddings/predictions
                 tr_out = np.genfromtxt(tmp_tr_out, delimiter=output_delim, dtype=float, skip_header=tr_skiprows,
@@ -882,7 +936,10 @@ class Evaluator(object):
             # Check if the method is ee or e2e and call the corresponding function
             results = list()
             if method_type == 'ee':
-                results.append(self.compute_pred(data_split=data_split, tr_edge_embeds=tr_out, te_edge_embeds=te_out))
+                train_pred, test_pred = self.compute_pred(data_split=data_split, tr_edge_embeds=tr_out,
+                                                          te_edge_embeds=te_out)
+                results.append(self.compute_results(data_split=data_split, method_name=method_name,
+                                                    train_pred=train_pred, test_pred=test_pred))
             else:
                 results.append(self.compute_results(data_split=data_split, method_name=method_name,
                                                     train_pred=tr_out, test_pred=te_out))
@@ -1003,8 +1060,8 @@ class Evaluator(object):
         self.lp_model.fit(tr_edge_embeds, data_split.train_labels)
 
         # Predict
-        train_pred = self.lp_model.predict(tr_edge_embeds)
-        test_pred = self.lp_model.predict(te_edge_embeds)
+        train_pred = self.lp_model.predict_proba(tr_edge_embeds)[:, 1]
+        test_pred = self.lp_model.predict_proba(te_edge_embeds)[:, 1]
 
         return train_pred, test_pred
 

@@ -11,6 +11,7 @@
 # preprocess_data -> split_train_test -> link_prediction -> evaluate_accuracy
 
 import os
+import random
 from time import time
 
 import networkx as nx
@@ -29,7 +30,7 @@ from evalne.preprocessing import split_train_test as stt
 dataset_path = "../evalne/tests/data/network.edgelist"
 output_path = "./output/"
 directed = False
-
+random.seed(99)
 
 ###########################
 #          Main
@@ -89,18 +90,18 @@ stt.check_overlap(filename=output_path + "lp_train_test_splits/network_prep_51_t
 # stt.check_overlap(filename=output_path + "lp_train_test_splits/network_prep_51_negTeE", num_sets=5)
 
 # Alternatively, train/test splits can be computed one at a time
-train_E, test_E = stt.split_train_test(SG, train_frac=0.50, seed=99)
+train_E, test_E = stt.split_train_test(SG, train_frac=0.50)
 
 # Compute set of false edges
 # train_E_false, test_E_false = stt.generate_false_edges_owa(SG, train_E=train_E, test_E=test_E, num_fe_train=None,
-#                                                            num_fe_test=None, seed=99)
+#                                                            num_fe_test=None)
 train_E_false, test_E_false = stt.generate_false_edges_cwa(SG, train_E=train_E, test_E=test_E, num_fe_train=None,
-                                                           num_fe_test=None, seed=99)
+                                                           num_fe_test=None)
 
 # Store the computed edge sets to a file
 filenames = stt.store_train_test_splits(output_path + "lp_train_test_splits/network_prep_51",
                                         train_E=train_E, train_E_false=train_E_false, test_E=test_E,
-                                        test_E_false=test_E_false, split=99)
+                                        test_E_false=test_E_false, split_id=0)
 
 # -------------------------------------------
 # Link prediction (LP) using baseline methods

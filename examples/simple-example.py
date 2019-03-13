@@ -6,8 +6,6 @@
 
 # This simple example is the one presented in the README.md file.
 
-# NOTE: In order to run this experiment `as is` OpenNE is required.
-
 from evalne.evaluation import evaluator
 from evalne.preprocessing import preprocess as pp
 
@@ -25,19 +23,27 @@ methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient']
 # Evaluate baselines
 nee.evaluate_baseline(methods=methods)
 
-# Set embedding methods from OpenNE
-methods = ['node2vec', 'deepwalk', 'GraRep']
-commands = [
-    'python -m openne --method node2vec --graph-format edgelist --p 1 --q 1',
-    'python -m openne --method deepWalk --graph-format edgelist --number-walks 40',
-    'python -m openne --method grarep --graph-format edgelist --epochs 10']
-edge_emb = ['average', 'hadamard']
+try:
+    # Check if OpenNE is installed
+    import openne
 
-# Evaluate embedding methods
-for i in range(len(methods)):
-    command = commands[i] + " --input {} --output {} --representation-size {}"
-    nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
-                     edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+    # Set embedding methods from OpenNE
+    methods = ['node2vec', 'deepwalk', 'GraRep']
+    commands = [
+        'python -m openne --method node2vec --graph-format edgelist --p 1 --q 1',
+        'python -m openne --method deepWalk --graph-format edgelist --number-walks 40',
+        'python -m openne --method grarep --graph-format edgelist --epochs 10']
+    edge_emb = ['average', 'hadamard']
+
+    # Evaluate embedding methods
+    for i in range(len(methods)):
+        command = commands[i] + " --input {} --output {} --representation-size {}"
+        nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+                         edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+
+except ImportError:
+    print("The OpenNE library is not installed. Reporting results only for the baselines...")
+    pass
 
 # Get output
 results = nee.get_results()
