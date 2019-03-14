@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="evalne",
-    version='0.2.1',
+    version='0.2.2',
     url="https://github.com/Dru-Mara/EvalNE",
     license="MIT License",
     author="Alexandru Mara",

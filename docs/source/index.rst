@@ -46,7 +46,7 @@ See :doc:`the quickstart <quickstart>` to get started.
 Citation
 --------
 
-If you have found EvaNE usefull in your research, please cite our arXiv paper_ :
+If you have found EvaNE useful in your research, please cite our arXiv paper_ :
 
 .. _paper: https://arxiv.org/abs/1901.09691
 

@@ -1,6 +1,21 @@
 Release Log
 ===========
 
+EvalNE v0.2.2
+-------------
+
+Release date: 14 Mar 2019
+
+Documentation
+~~~~~~~~~~~~~
+- Readme and docs update to include pip installation
+
+Miscelaneous
+~~~~~~~~~~~~
+- Library is now pip installable
+- Minor bugfixes
+
+
 EvalNE v0.2.1
 -------------
 

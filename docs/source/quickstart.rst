@@ -12,23 +12,35 @@ An example `conf.ini` file is provided describing the available options
 for each parameter. This file can be either modified to simulate different
 evaluation settings or used as a template to generate other *.ini* files.
 
-Another configuration example provided is `conf_node2vec.ini`. This file simulates 
-the link prediction experiments of the paper "Scalable Feature Learning for 
-Networks" by A. Grover and J. Leskovec.
+Additional configuration (*.ini*) files are provided replicating the experimental 
+sections of different papers in the NE literature. These can be found in different
+folders under `examples/`. One such configuration file is 
+`examples/node2vec/conf_node2vec.ini`. This file simulates the link prediction 
+experiments of the paper "Scalable Feature Learning for Networks" by A. Grover 
+and J. Leskovec.
 
 Once the configuration is set, the evaluation can be run as indicated in the next
 subsection.
 
 **Running the conf examples**
 
-In order to run the evaluations using the provided `conf.ini` and 
-`conf_node2vec.ini` files, the following steps are necessary: 
+In order to run the evaluations using the provided `conf.ini` or any other *.ini*
+file, the following steps are necessary: 
 
-1. Download and install the libraries/methods used in the examples:
+1. Download/Install the libraries/methods you want to test:
 
-  * OpenNE_
-  * PRUNE_
-  * Metapath2Vec_
+  * For running `conf.ini`:
+
+    * OpenNE_
+    * PRUNE_
+    
+  * For running other *.ini* files you may need:
+
+    * Deepwalk_
+    * Node2vec_
+    * LINE_
+    * Metapath2Vec_
+    * CNE_
 
 2. Download the datasets used in the examples:
 
@@ -37,24 +49,28 @@ In order to run the evaluations using the provided `conf.ini` and
     * StudentDB_
     * Arxiv GR-QC_
 
-  * For `conf_node2vec.ini`:
+  * For other *.ini* files you may need:
 
     * Facebook_ combined network
+    * Facebook-wallpost_
     * Arxiv Astro-Ph_
+    * ArXiv Hep-Ph_ (https://snap.stanford.edu/data/cit-HepPh.html)
+    * BlogCatalog_ (http://socialcomputing.asu.edu/datasets/BlogCatalog3)
+    * Wikipedia_ (http://snap.stanford.edu/node2vec)
     * PPI_
     
-3. Set the correct dataset paths in the INPATHS option of the corresponding *.ini* file. 
-And the correct path for PRUNE under the METHODS_OTHER option. 
+3. Set the correct dataset paths in the INPATHS option of the corresponding *.ini* 
+file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER options.  
 
 4. Run the evaluation:
 
-    ::
+    .. code-block:: console
     
         # For conf.ini run:
-        python evalne ./examples/conf.ini
+        foo@bar:~$ python evalne ./examples/conf.ini
     
         # For conf_node2vec.ini run:
-        python evalne ./examples/node2vec/conf_node2vec.ini
+        foo@bar:~$ python evalne ./examples/node2vec/conf_node2vec.ini
 
 .. note::
 
@@ -62,11 +78,20 @@ And the correct path for PRUNE under the METHODS_OTHER option.
 
 .. _OpenNE: https://github.com/thunlp/OpenNE
 .. _PRUNE: https://github.com/ntumslab/PRUNE
+.. _Deepwalk: https://github.com/phanein/deepwalk
+.. _Node2vec: https://github.com/aditya-grover/node2vec
+.. _LINE: https://github.com/tangjianpku/LINE
 .. _Metapath2Vec: https://www.dropbox.com/s/w3wmo2ru9kpk39n/code_metapath2vec.zip?dl=0
+.. _CNE: https://bitbucket.org/ghentdatascience/cne/
+
 .. _StudentDB: http://adrem.ua.ac.be/smurfig
 .. _GR-QC: https://snap.stanford.edu/data/ca-GrQc.html
 .. _Facebook: https://snap.stanford.edu/data/egonets-Facebook.html
+.. _Facebook-wallpost: http://socialnetworks.mpi-sws.org/data-wosn2009.html
 .. _Astro-Ph: http://snap.stanford.edu/data/ca-AstroPh.html
+.. _Hep-Ph: https://snap.stanford.edu/data/cit-HepPh.html
+.. _BlogCatalog: http://socialcomputing.asu.edu/datasets/BlogCatalog3
+.. _Wikipedia: http://snap.stanford.edu/node2vec
 .. _PPI: http://snap.stanford.edu/node2vec/Homo_sapiens.mat
 
 As an API
@@ -134,7 +159,7 @@ is requested the values reported will be the average over all the repeats. The o
 file will be located in the same path from which the evaluation was run.
 
 Setting the SCORES option to `%(maximize)` will generate a similar output file as before.
-The content of this file, however, will be a table (Alg.\Network) containing exclusively 
+The content of this file, however, will be a table (Alg. x Networks) containing exclusively 
 the score specified in the MAXIMIZE option for each combination of method and network
 averaged over all experiment repeats. 
 

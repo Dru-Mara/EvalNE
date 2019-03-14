@@ -91,28 +91,52 @@ sudo apt-get install python3-pip
 sudo apt-get install python3-tk
 ```
 
-Clone the EvalNE repository:
-```bash
-git clone https://github.com/Dru-Mara/EvalNE.git
-cd EvalNE
-```
-
-Install strict library requirements:
+**Option 1:** Install the library using pip:
 ```bash
 # Python 2
-pip install -r requirements.txt
-sudo python setup.py install
+pip install evalne
 
 # Python 3
-pip3 install -r requirements.txt
-sudo python3 setup.py install
+pip3 install evalne
 ```
 
-**NOTE:** In order to run the examples the OpenNE library, PRUNE and Metapath2Vec are 
-required. The instructions for installing them are available 
+**Option 2:** Cloning the code and installing:
+
+- Clone the EvalNE repository:
+    ```bash
+    git clone https://github.com/Dru-Mara/EvalNE.git
+    cd EvalNE
+    ```
+
+- Download strict library dependencies and install:
+    ```bash
+    # Python 2
+    pip install -r requirements.txt
+    sudo python setup.py install
+    
+    # Python 3
+    pip3 install -r requirements.txt
+    sudo python3 setup.py install
+    ```
+
+Check the installation by running `simple_example.py` or `functions_example.py` e.g.:
+```bash
+# Python 2
+cd examples/
+python simple_example.py
+
+# Python 3
+cd examples/
+python3 simple_example.py
+```
+
+**NOTE:** In order to run the `evaluator_example.py` script, the 
+OpenNE library, PRUNE and Metapath2Vec are required. The instructions for installing 
+them are available 
 [here](https://github.com/thunlp/OpenNE), [here](https://github.com/ntumslab/PRUNE), 
 and [here](https://www.dropbox.com/s/w3wmo2ru9kpk39n/code_metapath2vec.zip?dl=0), 
-respectively.
+respectively. The instructions on how to run evaluations using *.ini* files are 
+provided in the next section. 
 
 
 ## Usage ##
@@ -127,31 +151,49 @@ An example `conf.ini` file is provided describing the available options
 for each parameter. This file can be either modified to simulate different
 evaluation settings or used as a template to generate other *.ini* files.
 
-Another configuration example provided is `conf_node2vec.ini`. This file simulates 
-the link prediction experiments of the paper "Scalable Feature Learning for 
-Networks" by A. Grover and J. Leskovec.
+Additional configuration (*.ini*) files are provided replicating the experimental 
+sections of different papers in the NE literature. These can be found in different
+folders under `examples/`. One such configuration file is 
+`examples/node2vec/conf_node2vec.ini`. This file simulates the link prediction 
+experiments of the paper "Scalable Feature Learning for Networks" by A. Grover 
+and J. Leskovec.
 
 Once the configuration is set, the evaluation can be run as indicated in the next
 subsection.
 
 #### Running the conf examples ####
 
-In order to run the evaluations using the provided `conf.ini` and 
-`conf_node2vec.ini` files, the following steps are necessary: 
+In order to run the evaluations using the provided `conf.ini` or any other *.ini*
+file, the following steps are necessary: 
 
-1. Install OpenNE and PRUNE as shown in the *Instalation* section.
+1. Download/Install the methods you want to test:
+    * For `conf.ini`:
+        * Install [OpenNE](https://github.com/thunlp/OpenNE) 
+        * Install [PRUNE](https://github.com/ntumslab/PRUNE)
+    * For other *.ini* files you may need:
+        *   [Deepwalk](https://github.com/phanein/deepwalk),
+            [Node2vec](https://github.com/aditya-grover/node2vec),
+            [LINE](https://github.com/tangjianpku/LINE),
+            [Metapath2vec](https://ericdongyx.github.io/metapath2vec/m2v.html), and/or
+            [CNE](https://bitbucket.org/ghentdatascience/cne/).
 
 2. Download the datasets used in the examples:
    * For `conf.ini`:
       * [StudentDB](http://adrem.ua.ac.be/smurfig)
-      * [Arxiv GR-QC](https://snap.stanford.edu/data/ca-GrQc.html)
-   * For `conf_node2vec.ini`:
-      * [Facebook](https://snap.stanford.edu/data/egonets-Facebook.html) combined network
-      * [Arxiv Astro-Ph](http://snap.stanford.edu/data/ca-AstroPh.html)
+      * [ArXiv GR-QC](https://snap.stanford.edu/data/ca-GrQc.html)
+   * For other *.ini* files you may need:
+      * [Facebook](https://snap.stanford.edu/data/egonets-Facebook.html) (combined network)
+      * [Facebook-wallpost](http://socialnetworks.mpi-sws.org/data-wosn2009.html)
+      * [ArXiv Astro-Ph](http://snap.stanford.edu/data/ca-AstroPh.html)
+      * [ArXiv Hep-Ph](https://snap.stanford.edu/data/cit-HepPh.html)
+      * [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3)
+      * [Wikipedia](http://snap.stanford.edu/node2vec)
       * [PPI](http://snap.stanford.edu/node2vec/Homo_sapiens.mat)
+      
+      
     
 3. Set the correct dataset paths in the INPATHS option of the corresponding *.ini* 
-file. And the correct path for PRUNE under the METHODS_OTHER option. 
+file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER options. 
 
 4. Run the evaluation:
     ```bash
@@ -162,7 +204,7 @@ file. And the correct path for PRUNE under the METHODS_OTHER option.
     python evalne ./examples/node2vec/conf_node2vec.ini
     ```
 
-**Note**: The input networks for EvalNE are required to be in edgelist form.
+**Note**: The input networks for EvalNE are required to be in edgelist format.
 
 ### As an API ###
 
@@ -227,7 +269,7 @@ is requested the values reported will be the average over all the repeats. The o
 file will be located in the same path from which the evaluation was run.
 
 Setting the SCORES option to `%(maximize)` will generate a similar output file as before.
-The content of this file, however, will be a table (Alg.\Network) containing exclusively 
+The content of this file, however, will be a table (Alg. x Networks) containing exclusively 
 the score specified in the MAXIMIZE option for each combination of method and network
 averaged over all experiment repeats. 
 
@@ -240,7 +282,7 @@ library will store the true and false train and test sets of edge.
 
 ## Citation ##
 
-If you have found EvaNE usefull in your research, please cite our 
+If you have found EvaNE useful in your research, please cite our 
 [arXiv paper](https://arxiv.org/abs/1901.09691):
 
 ```
