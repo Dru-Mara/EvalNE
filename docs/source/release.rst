@@ -1,6 +1,31 @@
 Release Log
 ===========
 
+EvalNE v0.2.3
+-------------
+
+Release date: 25 Apr 2019
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update
+- Library diagram minor update
+
+Bugs
+~~~~
+- Corrected parameter tuning rutine which was minimizing the objective metric given instead of maximizing it.
+- Corrected evaluate_cmd() function output.
+
+New features
+~~~~~~~~~~~~
+- Evaluation output file now contains also a table of execution times per evaluated method.
+
+Miscelaneous
+~~~~~~~~~~~~
+- Changed behaviour of verbosity flag. Now, if Verbose=False it deactivates all stdout for the methods being evaluated (not stderr) but maintains the library stdout.
+- Added more conf.ini files for reproducing the experimental section of different papers.
+
+
 EvalNE v0.2.2
 -------------
 

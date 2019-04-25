@@ -7,6 +7,7 @@
 import os
 import random
 import time
+from datetime import timedelta
 import numpy as np
 
 from sys import argv
@@ -34,7 +35,7 @@ def main():
 
     # Get execution time
     end = time.time() - start
-    print("Precessed in {} seconds".format(str(end)))
+    print("Evaluation finished in: {} ({:.2f} sec.)".format(str(timedelta(seconds=round(end))), end))
 
 
 def evaluate(setup):
@@ -49,12 +50,12 @@ def evaluate(setup):
     # Auxiliary variable to store the tabular results
     results = list()
     names = list()
+    exec_times = list()
 
     # Loop over all input networks
     for i in range(len(inpaths)):
-        if setup.verbose:
-            print('\nEvaluating {} network...'.format(setup.names[i]))
-            print('-------------------------------------')
+        print('\nEvaluating {} network...'.format(setup.names[i]))
+        print('=====================================')
 
         # Create output path if needed
         if not os.path.exists(outpaths[i]):
@@ -72,11 +73,14 @@ def evaluate(setup):
         G = preprocess(setup, i)
 
         res = list()
+        exect = list()
 
         # For each repeat of the experiment generate new data splits
         for repeat in range(setup.exp_repeats):
-            if setup.verbose:
-                print('Repetition {} of experiment'.format(repeat))
+            print('\nRepetition {} of experiment...'.format(repeat))
+            print('-------------------------------------')
+
+            times = list()
 
             # Generate one train/test split
             train_E, train_E_false, test_E, test_E_false = \
@@ -95,14 +99,14 @@ def evaluate(setup):
 
             # Evaluate baselines
             if setup.lp_baselines is not None:
-                eval_baselines(setup, nee, i)
+                times.extend(eval_baselines(setup, nee, i))
 
             # Evaluate other NE methods
             if setup.methods_opne is not None or setup.methods_other is not None:
-                eval_other(setup, nee)
+                times.extend(eval_other(setup, nee))
 
             # Write method results to one file per experiment repeat
-            # check_scores(setup, nee, repeat)
+            check_scores(setup, nee, repeat)
 
             # Store the results and average over the exp. repeats
             names, res = get_scores(setup, nee, res, i, repeat)
@@ -110,11 +114,17 @@ def evaluate(setup):
             # Reset the results list
             nee.reset_results()
 
+            # Log exec times
+            exect.append(times)
+
         results.append(res)
+
+        # Compute average exec times over all exp repeats
+        exec_times.append(np.mean(np.array(exect), axis=0))
 
     # Store the results
     if setup.scores is not None:
-        write_output(setup, results, names)
+        write_output(setup, results, names, exec_times)
 
     print("End of experiment")
 
@@ -123,8 +133,7 @@ def preprocess(setup, i):
     """
     Graph preprocessing rutine.
     """
-    if setup.verbose:
-        print('Preprocesing graph...')
+    print('Preprocesing graph...')
 
     # Load a graph
     G = pp.load_graph(setup.inpaths[i], delimiter=setup.separators[i], comments=setup.comments[i],
@@ -146,36 +155,41 @@ def eval_baselines(setup, nee, i):
     """
     Experiment to test the baselines.
     """
-    if setup.verbose:
-        print('Evaluating baselines...')
+    print('Evaluating baselines...')
+
+    # Store execution times of methods
+    exec_times = list()
 
     # Set the baselines
     methods = setup.lp_baselines
 
     # Evaluate baseline methods
     if setup.directed[i]:
-        if setup.verbose:
-            print('Input {} network is directed. Running baselines for all neighbourhoods specified...'
-                  .format(setup.names[i]))
+        print('Input {} network is directed. Running baselines for all neighbourhoods specified...'
+              .format(setup.names[i]))
         for neigh in setup.neighbourhood:
-            nee.evaluate_baseline(methods=methods, neighbourhood=neigh)
+            exec_times.extend(nee.evaluate_baseline(methods=methods, neighbourhood=neigh))
     else:
-        if setup.verbose:
-            print('Input {} network is undirected. Running standard baselines...'.format(setup.names[i]))
-        nee.evaluate_baseline(methods=methods)
+        print('Input {} network is undirected. Running standard baselines...'.format(setup.names[i]))
+        exec_times.extend(nee.evaluate_baseline(methods=methods))
+
+    return exec_times
 
 
 def eval_other(setup, nee):
     """
     Experiment to test other embedding methods not integrated in the library.
     """
-    if setup.verbose:
-        print('Evaluating Embedding methods...')
+    print('Evaluating Embedding methods...')
+
+    # Store execution times of methods
+    exec_times = list()
 
     if setup.methods_other is not None:
         # Evaluate non OpenNE method
         # -------------------------------
         for i in range(len(setup.methods_other)):
+            start = time.time()
             # Evaluate the method
             nee.evaluate_cmd(method_name=setup.names_other[i], method_type=setup.embtype_other[i],
                              command=setup.methods_other[i], edge_embedding_methods=setup.edge_embedding_methods,
@@ -183,16 +197,29 @@ def eval_other(setup, nee):
                              tune_params=setup.tune_params_other[i], maximize=setup.maximize,
                              write_weights=setup.write_weights_other[i], write_dir=setup.write_dir_other[i],
                              verbose=setup.verbose)
+            end = time.time() - start
+            # For node embedding methods we have several names, one per ee used. We give each the same exec time.
+            if setup.embtype_other[i] == 'ne':
+                for ee in setup.edge_embedding_methods:
+                    exec_times.append(end)
+            else:
+                exec_times.append(end)
 
     if setup.methods_opne is not None:
         # Evaluate methods from OpenNE
         # ----------------------------
         for i in range(len(setup.methods_opne)):
+            start = time.time()
             command = setup.methods_opne[i] + " --input {} --output {} --representation-size {}"
             nee.evaluate_cmd(method_name=setup.names_opne[i], method_type='ne', command=command, input_delim=' ',
                              edge_embedding_methods=setup.edge_embedding_methods, output_delim=' ',
                              tune_params=setup.tune_params_opne[i], maximize=setup.maximize, write_weights=False,
                              write_dir=True, verbose=setup.verbose)
+            end = time.time() - start
+            for ee in setup.edge_embedding_methods:
+                exec_times.append(end)
+
+    return exec_times
 
 
 def get_scores(setup, nee, res, nw_indx, repeat):
@@ -226,7 +253,7 @@ def get_scores(setup, nee, res, nw_indx, repeat):
     return names, res
 
 
-def write_output(setup, results, method_names):
+def write_output(setup, results, method_names, exec_times):
     # Set output name
     filename = "./eval_output.txt"
 
@@ -261,6 +288,17 @@ def write_output(setup, results, method_names):
             for i in range(len(results)):
                 f.write(('\t' + str(np.around(results[i][j][1][index] / setup.exp_repeats, 4))).encode())
             f.write('\n'.encode())
+
+    # Write execution times for each combination alg./network
+    header = '\nExecution times (sec.):\n----------------------\nAlg.\\Network'
+    for name in setup.names:
+         header += '\t' + name
+    f.write((header + '\n').encode())
+    for j in range(len(exec_times[0])):
+        f.write((method_names[j] + ': ').encode())
+        for i in range(len(exec_times)):
+            f.write(('\t' + str(np.around(exec_times[i][j], 2))).encode())
+        f.write('\n'.encode())
 
     # Close the file
     f.close()

@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import warnings
+import time
 
 import networkx as nx
 import numpy as np
@@ -449,7 +450,7 @@ class Evaluator(object):
 
     def evaluate_baseline(self, methods, neighbourhood='in'):
         """
-        Evaluates the baseline methods. Results are stored as scoresheets.
+        Evaluates the baseline methods. Scores are stored as Results objects.
 
         Parameters
         ----------
@@ -458,11 +459,21 @@ class Evaluator(object):
         neighbourhood : basestring, optional
             A string indicating the 'in' or 'out' neighbourhood to be used for directed graphs.
             Default is 'in'.
+
+        Returns
+        -------
+        exec_times : list
+            A list containing the execution times of each method.
         """
         params = {'neighbourhood': neighbourhood}
         self.edge_embed_method = None
 
+        exec_times = list()
+
         for method in methods:
+            # Measure execution time
+            start = time.time()
+
             try:
                 func = getattr(sim, str(method))
                 train_pred = func(self.traintest_split.TG, self.traintest_split.train_edges, neighbourhood)
@@ -485,6 +496,10 @@ class Evaluator(object):
                                                method_name=method,
                                                train_pred=train_pred, test_pred=test_pred, params=params)
                 self._results.append(results)
+
+            exec_times.append(time.time() - start)
+
+        return exec_times
 
     def evaluate_cmd(self, method_name, method_type, command, edge_embedding_methods, input_delim, output_delim,
                      tune_params=None, maximize='auroc', write_weights=False, write_dir=False, verbose=True):
@@ -543,8 +558,7 @@ class Evaluator(object):
 
         # Check if tuning parameters is needed
         if tune_params is not None:
-            if verbose:
-                print('Tuning parameters for {} ...'.format(method_name))
+            print('Tuning parameters for {} ...'.format(method_name))
 
             # Variable to store the best results and parameters for each ee_method
             best_results = list()
@@ -606,7 +620,7 @@ class Evaluator(object):
                         else:
                             func1 = getattr(results[j].test_scores, str(maximize))
                             func2 = getattr(best_results[j].test_scores, str(maximize))
-                            if func1() < func2():
+                            if func1() > func2():
                                 best_results[j] = results[j]
                                 best_params[j] = param_str
             else:
@@ -641,7 +655,7 @@ class Evaluator(object):
                         else:
                             func1 = getattr(results[i].test_scores, str(maximize))
                             func2 = getattr(best_results[i].test_scores, str(maximize))
-                            if func1() < func2():
+                            if func1() > func2():
                                 best_results[i] = results[i]
                                 best_params[i] = param_str
 
@@ -649,6 +663,8 @@ class Evaluator(object):
             results = list()
             for i in range(len(edge_embedding_methods)):
                 ext_command = command + best_params[i]
+                print('Best parameters for {} using ee method {} are: {}'
+                      .format(method_name, edge_embedding_methods[i], best_params[i]))
 
                 # Call the corresponding evaluation method
                 if method_type == 'ne':
@@ -708,9 +724,12 @@ class Evaluator(object):
 
         # Add the input, output and embedding dimensionality to the command
         command = command.format(tmpedg, tmpemb, self.dim)
-        if verbose:
-            print('Running command...')
-            print(command)
+
+        # If verbose is False suppress all output from executed method
+        if not verbose:
+            command += ' 1>/dev/null'
+        print('Running command...')
+        print(command)
 
         try:
             # Call the method
@@ -777,7 +796,6 @@ class Evaluator(object):
             raise
 
         finally:
-            pass
             # Delete the temporal files
             os.remove('./edgelist.tmp')
             if os.path.isfile('./emb.tmp'):
@@ -832,9 +850,11 @@ class Evaluator(object):
         else:
             data_split.store_edgelists(tmp_tr_e, tmp_te_e)
 
-        if verbose:
-            print('Running command...')
-            print(command)
+        # If verbose is False suppress all output from executed method
+        if not verbose:
+            command += ' 1>/dev/null'
+        print('Running command...')
+        print(command)
 
         try:
             # Call the method
