@@ -7,8 +7,6 @@
 # This code provides simple methods to preprocess graphs for the specific task of graph embeddings.
 # Only undirected Graphs and Digraphs are supported, multi-graphs are not.
 
-# TODO: Add nx.number_of_self_loops(G) to the statistics
-
 from __future__ import division
 from __future__ import print_function
 
@@ -20,8 +18,8 @@ import numpy as np
 
 def load_graph(input_path, delimiter=',', comments='#', directed=False):
     r"""
-    Loads a directed or undirected unweighted graph from an edgelist. 
-    For undirected graphs edges are sorted (smallID, bigID)
+    Loads a directed or undirected graph from an edgelist. If the edgelist is weighted the provided graph will
+    maintain those weights. For undirected graphs edges are sorted (smallID, bigID)
     
     Parameters
     ----------
@@ -50,11 +48,82 @@ def load_graph(input_path, delimiter=',', comments='#', directed=False):
         E.sort(axis=1)
         G = nx.Graph()
 
-    # We make sure the graph is unweighted
-    G.add_edges_from(E[:, :2])   # G.add_edges_from(E)
+    if E.shape[1] == 2:
+        # Create an unweighted graph
+        G.add_edges_from(E)
+    else:
+        # Create an weighted graph
+        G.add_weighted_edges_from(E[:, :3])
 
     # Return the nx graph
     return G
+
+
+def infer_header(input_path, expected_lines):
+    # Autodetect header of input as (num_lines_in_input - expected_lines)
+    num_lines = sum(1 for _ in open(input_path))
+    header_len = num_lines - expected_lines
+
+    if header_len < 0:
+        raise ValueError('Exception, not enough lines in input file! Expected {} lines, obtained {}.'
+                         .format(expected_lines, num_lines))
+    return header_len
+
+
+def read_embeddings(input_path, nodes, embed_dim, delimiter=','):
+    r"""
+    Method that reads a file containing node or edge embeddings, and returns the results as dictionary of:
+    {ID, embed_vect}. The file header is inferred base on the expected number of embeddings.
+
+    Parameters
+    ----------
+    input_path : file or string
+       File or filename to read.
+    delimiter : string, optional
+       The string used to separate values. Default is comma.
+    comments : string, optional
+       The character used to indicate the start of a comment. Default is '#'.
+    directed : bool
+       Indicated if the graph is directed or undirected.
+
+    Returns
+    -------
+    G : graph
+       A NetworkX graph
+    """
+    emb_skiprows = infer_header(input_path, len(nodes))
+
+    # Read the embeddings
+    X = np.genfromtxt(input_path, delimiter=delimiter, dtype=float, skip_header=emb_skiprows, autostrip=True)
+
+    if X.ndim == 1:
+        raise ValueError('Error encountered while reading node embeddings. Check output delimiter of evaluated method.')
+
+    if X.shape[1] == embed_dim:
+        # Assume embeddings given as matrix [X_0, X_1, ..., X_D] where rows correspond to sorted node id
+        keys = map(str, sorted(nodes))
+        X = dict(zip(keys, X))
+    elif X.shape[1] == embed_dim + 1:
+        # Assume first col is node id and rest are embedding features [id, X_0, X_1, ..., X_D]
+        keys = map(str, np.array(X[:, 0], dtype=int))
+        X = dict(zip(keys, X[:, 1:]))
+    else:
+        raise ValueError('Incorrect embedding dimension for evaluated method! Expected: {} or {} Received: {}'
+                         .format(embed_dim, embed_dim + 1, X.shape[1]))
+    return X
+
+
+def read_predictions(input_path, num_pred, delimiter=','):
+    emb_skiprows = infer_header(input_path, num_pred)
+
+    # Read the embeddings
+    X = np.genfromtxt(input_path, delimiter=delimiter, dtype=float, skip_header=emb_skiprows, autostrip=True)
+
+    if X.ndim != 1:
+        # If output is a matrix, assume last column has predictions in the same order as the edgelist.
+        X = X[:, -1]
+
+    return X
 
 
 def save_graph(G, output_path, delimiter=',', write_stats=True, write_weights=False, write_dir=True):
@@ -113,7 +182,7 @@ def save_graph(G, output_path, delimiter=',', write_stats=True, write_weights=Fa
             nx.write_edgelist(H, f, delimiter=delimiter, data=False)
 
 
-def get_stats(G, output_path=None):
+def get_stats(G, output_path=None, all_stats=False):
     r"""
     Prints or stores some basic statistics about the graph commonly used in network embedding literature.
     If an output file path is provided the results are written in that file.
@@ -121,9 +190,11 @@ def get_stats(G, output_path=None):
     Parameters
     ----------
     G : graph
-       A NetworkX graph
+        A NetworkX graph
     output_path : file or string
-       File or filename to write.
+        File or filename to write.
+    all_stats : bool
+        Sets if all stats or a small subset of them should be shown.
     """
     # Compute the number of nodes and edges of the graph
     N = len(G.nodes)
@@ -136,6 +207,18 @@ def get_stats(G, output_path=None):
     degdict = collections.OrderedDict(sorted(counts.items()))
     deg1 = degdict.get(1, 0)
     deg2 = degdict.get(2, 0)
+
+    if all_stats:
+        x = np.log(np.array(degdict.keys()))    # degrees
+        y = np.log(np.array(degdict.values()))  # frequencies
+        # the power-law coef. is the slope of a linear moder fitted to the loglog data which has closed-form solution
+        plawcoef = np.abs(np.cov(x, y) / np.var(x))[0, 1]
+        cc = nx.average_clustering(G)
+        dens = nx.density(G)
+        if G.is_directed():
+            diam = nx.diameter(G) if nx.is_strongly_connected(G) else float('inf')
+        else:
+            diam = nx.diameter(G)
 
     # Print or write to file the graph info
     if output_path is None:
@@ -162,9 +245,15 @@ def get_stats(G, output_path=None):
             print("Num. connected components: {}".format(num_ccs))
             print("Num. nodes in largest weakly CC: {} ({} % of total)".format(Ncc, Ncc * 100.0 / N))
             print("Num. edges in largest weakly CC: {} ({} % of total)".format(Mcc, Mcc * 100.0 / M))
+        if all_stats:
+            print("Clustering coefficient: {}".format(cc))
+            print("Diameter: {}".format(diam))
+            print("Density: {}".format(dens))
+            print("Power-law coefficient: {}".format(plawcoef))
         print("Avg. node degree: {}".format(avgdeg))
         print("Num. degree 1 nodes: {}".format(deg1))
         print("Num. degree 2 nodes: {}".format(deg2))
+        print("Num. self loops: {}".format(G.number_of_selfloops()))
         print("")
     else:
         # Write the info to the provided file
@@ -191,14 +280,20 @@ def get_stats(G, output_path=None):
             f.write("\n# Num. connected components: {}".format(num_ccs).encode())
             f.write("\n# Num. nodes in largest CC: {} ({} % of total)".format(Ncc, Ncc * 100.0 / N).encode())
             f.write("\n# Num. edges in largest CC: {} ({} % of total)".format(Mcc, Mcc * 100.0 / M).encode())
+        if all_stats:
+            f.write("\n# Clustering coefficient: {}".format(cc).encode())
+            f.write("\n# Diameter: {}".format(diam).encode())
+            f.write("\n# Density: {}".format(dens).encode())
+            f.write("\n# Power-law coefficient: {}".format(plawcoef).encode())
         f.write("\n# Avg. node degree: {}".format(avgdeg).encode())
         f.write("\n# Num. degree 1 nodes: {}".format(deg1).encode())
         f.write("\n# Num. degree 2 nodes: {}".format(deg2).encode())
+        f.write("\n# Num. self loops: {}".format(G.number_of_selfloops()).encode())
         f.write("\n".encode())
         f.close()
         
 
-def prep_graph(G, relabel=True, del_self_loops=True):
+def prep_graph(G, relabel=True, del_self_loops=True, maincc=True):
     r"""
     Preprocess a graphs according to the parameters provided.
     By default the (digraphs) graphs are restricted to their main (weakly) connected component.
@@ -207,12 +302,14 @@ def prep_graph(G, relabel=True, del_self_loops=True):
     Parameters
     ----------
     G : graph
-       A NetworkX graph
+        A NetworkX graph
     relabel : bool, optional
-       Determines if the nodes are relabeled with consecutive integers 0..N
+        Determines if the nodes are relabeled with consecutive integers 0..N
     del_self_loops : bool, optional
-       Determines if self loops should be deleted from the graph. Default is True.
-    
+        Determines if self loops should be deleted from the graph. Default is True.
+    maincc : bool, optional
+        Determines if the graphs should be restricted to the main connected component or not. Default is True.
+
     Returns
     -------
     G : graph
@@ -225,10 +322,13 @@ def prep_graph(G, relabel=True, del_self_loops=True):
         G.remove_edges_from(G.selfloop_edges())
 
     # Restrict graph to its main connected component
-    if G.is_directed():
-        Gcc = max(nx.weakly_connected_component_subgraphs(G), key=len)
+    if maincc:
+        if G.is_directed():
+            Gcc = max(nx.weakly_connected_component_subgraphs(G), key=len)
+        else:
+            Gcc = max(nx.connected_component_subgraphs(G), key=len)
     else:
-        Gcc = max(nx.connected_component_subgraphs(G), key=len)
+        Gcc = G
 
     # Relabel graph nodes in 0...N
     if relabel:
@@ -238,6 +338,55 @@ def prep_graph(G, relabel=True, del_self_loops=True):
         return Grl, ids
     else:
         return Gcc, None
+
+
+def relabel_nodes(train_E, test_E, directed):
+    r"""
+    For given sets of train and test edges, the method returns relabeled sets with nodes being integers in 0...N.
+    Additionally, the method return a graph G containing all edges in the train and test sets and the same node labels.
+
+    Parameters
+    ----------
+    train_E : set
+        The set of train edges.
+    test_E : set
+        The set of test edges.
+    directed: bool
+        Indicates if the returned graph should be directed or undirected.
+
+    Returns
+    -------
+    train_false_E : set
+        The set of false train edges
+    test_false_E : set
+        The set of false test edges
+    G : graph
+        A NetworkX graph with relabeled nodes containing the edges in train and test.
+    mapping : dict
+        A dictionary containing old node id's as key and new id's as values.
+    """
+
+    E = train_E | test_E
+
+    if directed:
+        H = nx.DiGraph()
+        H.add_edges_from(E)
+    else:
+        H = nx.Graph()
+        H.add_edges_from(E)
+
+    mapping = dict(zip(H.nodes(), range(len(H.nodes()))))
+    nx.relabel_nodes(H, mapping, copy=False)
+
+    tr_E = set()
+    for (src, dst) in train_E:
+        tr_E.add((mapping[src], mapping[dst]))
+
+    te_E = set()
+    for (src, dst) in test_E:
+        te_E.add((mapping[src], mapping[dst]))
+
+    return tr_E, te_E, H, mapping
 
 
 def get_redges_false(G, output_path=None):
@@ -310,12 +459,6 @@ def read_train_test(filename, split):
     train_E_false = np.loadtxt(filenames[1], delimiter=',', dtype=int)
     test_E = np.loadtxt(filenames[2], delimiter=',', dtype=int)
     test_E_false = np.loadtxt(filenames[3], delimiter=',', dtype=int)
-
-    # Transform arrays in to sets of tuples
-    #train_E = set(zip(train_E[:, 0], train_E[:, 1]))
-    #train_E_false = set(zip(train_E_false[:, 0], train_E_false[:, 1]))
-    #test_E = set(zip(test_E[:, 0], test_E[:, 1]))
-    #test_E_false = set(zip(test_E_false[:, 0], test_E_false[:, 1]))
 
     return train_E, train_E_false, test_E, test_E_false
 

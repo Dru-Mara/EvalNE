@@ -10,6 +10,8 @@
 # Only undirected Graphs and Digraphs are supported.
 
 # TODO: the predict method will not work if the nodes are not consecutive integers
+# TODO: Both the exact (with sparse matrices) and aprox versions are extremely slow
+# TODO: the default for now is to take the adj mat as dense and do the computations. Can easily run out of memory...
 
 from __future__ import division
 
@@ -36,13 +38,29 @@ class Katz(object):
     def __init__(self, G, beta=0.005):
         self._G = G
         self.beta = beta
-        self.sim = None
-        self._fit()
+        self.sim = self._fit()
 
     def _fit(self):
+
+        # Versions using sparse matrices
+        # adj = nx.adjacency_matrix(self._G)
+        # ident = sparse.identity(len(self._G.nodes)).tocsc()
+        # sim = inv(ident - adj.multiply(self.beta).T) - ident
+        # adj = nx.adjacency_matrix(self._G)
+        # aux = adj.multiply(-self.beta).T
+        # aux.setdiag(1+aux.diagonal(), k=0)
+        # sim = inv(aux)
+        # sim.setdiag(sim.diagonal()-1)
+        # print(sim.nnz)
+        # print(adj.nnz)
+
+        # Version using dense matrices
         adj = nx.adjacency_matrix(self._G)
-        ident = sparse.identity(len(self._G.nodes))
-        self.sim = inv(ident - self.beta * adj.transpose()) - ident
+        aux = adj.T.multiply(-self.beta).todense()
+        np.fill_diagonal(aux, 1+aux.diagonal())
+        sim = np.linalg.inv(aux)
+        np.fill_diagonal(sim, sim.diagonal()-1)
+        return sim
 
     def predict(self, ebunch):
         ebunch = np.array(ebunch)

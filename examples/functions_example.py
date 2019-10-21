@@ -19,8 +19,8 @@ import numpy as np
 
 from evalne.evaluation import score
 from evalne.methods import similarity as sim
-from evalne.preprocessing import preprocess as pp
-from evalne.preprocessing import split_train_test as stt
+from evalne.utils import preprocess as pp
+from evalne.utils import split_train_test as stt
 
 ###########################
 #       Variables

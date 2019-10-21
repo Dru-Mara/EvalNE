@@ -6,22 +6,30 @@
 
 # This simple example is the one presented in the README.md file.
 
-from evalne.evaluation import evaluator
-from evalne.preprocessing import preprocess as pp
+from evalne.evaluation.evaluator import LPEvaluator
+from evalne.evaluation.split import EvalSplit
+from evalne.evaluation.score import Scoresheet
+from evalne.utils import preprocess as pp
 
 # Load and preprocess the network
 G = pp.load_graph('../evalne/tests/data/network.edgelist')
 G, _ = pp.prep_graph(G)
 
 # Create an evaluator and generate train/test edge split
-nee = evaluator.Evaluator()
-_ = nee.traintest_split.compute_splits(G)
+traintest_split = EvalSplit()
+traintest_split.compute_splits(G)
+nee = LPEvaluator(traintest_split)
+
+# Create a Scoresheet to store the results
+scoresheet = Scoresheet()
 
 # Set the baselines
 methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient']
 
 # Evaluate baselines
-nee.evaluate_baseline(methods=methods)
+for method in methods:
+    result = nee.evaluate_baseline(method=method)
+    scoresheet.log_results(result)
 
 try:
     # Check if OpenNE is installed
@@ -38,14 +46,13 @@ try:
     # Evaluate embedding methods
     for i in range(len(methods)):
         command = commands[i] + " --input {} --output {} --representation-size {}"
-        nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
-                         edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+        results = nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+                                   edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+        scoresheet.log_results(results)
 
 except ImportError:
     print("The OpenNE library is not installed. Reporting results only for the baselines...")
     pass
 
 # Get output
-results = nee.get_results()
-for result in results:
-    result.pretty_print()
+scoresheet.print_tabular()

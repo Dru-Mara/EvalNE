@@ -14,11 +14,16 @@
 from __future__ import division
 from __future__ import print_function
 
+import os
 import random
 import warnings
 
 import networkx as nx
 import numpy as np
+import scipy as sp
+from scipy.sparse import triu
+from scipy.sparse import tril
+from scipy.sparse.csgraph import depth_first_tree
 from sklearn.externals.joblib import Parallel, delayed
 
 
@@ -43,12 +48,13 @@ def _sanity_check(G):
                          "This graph contains: " + str(num_ccs))
 
 
-def _broder_alg(G, E):
+def broder_alg(G, E):
     r"""
     Runs Andrei Broder's algorithm to select uniformly at random a spanning tree of the input
-    graph. G is undirected, but, the direction of the edges included in train_E is taken from E
-    thus, the results are still valid for directed graphs.
-    Ref: www.cs.cmu.edu/~15859n/RelatedWork/Broder-GenRanSpanningTrees.pdf
+    graph.The direction of the edges included in train_E is taken from E which respects the
+    edge directions in the original graph, thus, the results are still valid for directed graphs.
+    For pairs of nodes in the original digraphs which have edges in both directions, we randomly
+    select the direction of the edge included in the ST.
 
     Parameters
     ----------
@@ -61,6 +67,11 @@ def _broder_alg(G, E):
     -------
     train_E : set
        A set of edges of G describing the random spanning tree
+
+     References
+    ----------
+    .. [1] A. Broder, "Generating Random Spanning Trees", Proc. of the 30th Annual Symposium
+           on Foundations of Computer Science, pp. 442--447, 1989.
     """
     # Create two partitions, S and T. Initially store all nodes in S.
     S = set(G.nodes)
@@ -74,17 +85,100 @@ def _broder_alg(G, E):
     # Perform random walk on the graph
     train_E = set()
     while S:
-        neighbour_node = random.sample(list(G.neighbors(current_node)), 1).pop()
+        if G.is_directed():
+            neighbour_node = random.sample(list(G.successors(current_node)) + list(G.predecessors(current_node)), 1).pop()
+        else:
+            neighbour_node = random.sample(list(G.neighbors(current_node)), 1).pop()
         if neighbour_node not in T:
             S.remove(neighbour_node)
             T.add(neighbour_node)
-            if (current_node, neighbour_node) in E:
-                train_E.add((current_node, neighbour_node))
+            if random.random() < 0.5:
+                if (current_node, neighbour_node) in E:
+                    train_E.add((current_node, neighbour_node))
+                else:
+                    train_E.add((neighbour_node, current_node))
             else:
-                train_E.add((neighbour_node, current_node))
+                if (neighbour_node, current_node) in E:
+                    train_E.add((neighbour_node, current_node))
+                else:
+                    train_E.add((current_node, neighbour_node))
         current_node = neighbour_node
 
     # Return the set of edges constituting the spanning tree
+    return train_E
+
+
+def wilson_alg(G, E):
+    r"""
+    Runs Willson's algorithm also known as loop erasing random walk to select uniformly at random
+    a spanning tree of the input graph. A set E contains the original direction of edges in graph G,
+    and train_E will only include edges which exist in E, thus, the results are still valid for
+    digraphs. For pairs of nodes in the original digraphs, which have edges in both directions,
+    we select the direction of the edge in the ST at random.
+
+    Parameters
+    ----------
+    G : graph
+       A NetworkX graph
+    E : set
+       A set of directed or undirected edges constituting the graph G.
+
+    Returns
+    -------
+    train_E : set
+       A set of edges of G describing the random spanning tree
+
+    References
+    ----------
+    .. [1] D. B. Wilson, "Generating Random Spanning Trees More Quickly than the Cover Time",
+           In Proceedings of STOC, pp. 296--303, 1996.
+    .. [2] J. G. Propp and D. B. Wilson, "How to Get a Perfectly Random Sample from a Generic
+           Markov Chain and Generate a Random Spanning Tree of a Directed Graph",
+           Journal of Algorithms 27, pp. 170--217, 1998.
+    """
+    # Stores the nodes which are part of the trees created by the LERW.
+    intree = set()
+
+    # A dictionary which works as a linked list and stores the spanning tree
+    tree = dict()
+
+    # Pick a random node as the root of the spanning tree and add it to intree
+    # For undirected graphs this is the correct approach
+    r = random.sample(G.nodes, 1).pop()
+    intree.add(r)
+
+    for node in G.nodes:
+        i = node
+        while i not in intree:
+            # This random successor works for weighted and unweighted graphs because we just
+            # want to select a bunch of edges from the graph, no matter what the weights are.
+            if G.is_directed():
+                tree[i] = random.sample(list(G.successors(i)) + list(G.predecessors(i)), 1).pop()
+            else:
+                tree[i] = random.sample(list(G.neighbors(i)), 1).pop()
+            i = tree[i]
+        i = node
+        while i not in intree:
+            intree.add(i)
+            i = tree[i]
+
+    # Create a set to store the train edges
+    train_E = set()
+
+    # This is only relevant for directed graphs to make the selection of edge direction equiprobable
+    for e in set(zip(tree.keys(), tree.values())):
+        if random.random() < 0.5:
+            if e in E:
+                train_E.add(e)
+            else:
+                train_E.add(e[::-1])
+        else:
+            if e[::-1] in E:
+                train_E.add(e[::-1])
+            else:
+                train_E.add(e)
+
+    # Return the edges of the random spanning tree
     return train_E
 
 
@@ -161,19 +255,23 @@ def compute_splits_parallel(G, output_path, owa=True, train_frac=0.51, num_fe_tr
         path_func(G, output_path, owa, train_frac, num_fe_train, num_fe_test, split) for split in range(num_splits))
 
 
-def split_train_test(G, train_frac=0.51):
+def split_train_test(G, train_frac=0.51, st_alg='wilson'):
     r"""
     Computes one train/test split of edges from an input graph and returns the results.
-    The train set will be (weakly) connected and span all nodes of the input graph.
+    The train set will be (weakly) connected and span all nodes of the input graph (digraph).
     Input graph (digraph) cannot contain more than one (weakly) connected component.
     
     Parameters
     ----------
     G : graph
-       A NetworkX graph
+        A NetworkX graph
     train_frac : float, optional
-       The relative size (in range (0.0, 1.0]) of the train set with respect to the total number of edges in the graph.
-       Default is 0.51.
+        The relative size (in range (0.0, 1.0]) of the train set with respect to the total number of edges in the graph.
+        Default is 0.51.
+    st_alg : basestring, optional
+        The algorithm to use for generating the spanning tree constituting the backbone of the train set.
+        Options are: 'wilson' and 'broder'. The first option, 'wilson', also known as LERW is much faster in most cases.
+        Default is 'wilson'.
 
     Returns
     -------
@@ -186,16 +284,18 @@ def split_train_test(G, train_frac=0.51):
     _sanity_check(G)
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
+    if train_frac == 1.0:
+        return set(G.edges()), set()
 
     # Create a set of all edges in G
     E = set(G.edges)
 
-    # Make the input graph is undirected in order to compute the random spanning tree
-    # The set of all edges E still contains the direction of edges
-    H = nx.to_undirected(G)
-
-    # Compute a random spanning tree using broder's algorithm
-    train_E = _broder_alg(H, E)
+    if st_alg == 'broder':
+        # Compute a random spanning tree using broder's algorithm
+        train_E = broder_alg(G, E)
+    else:
+        # Compute a random spanning tree using wilson's algorithm
+        train_E = wilson_alg(G, E)
 
     # Fill test edge set as all edges not in the spanning tree
     test_E = E - train_E
@@ -213,7 +313,7 @@ def split_train_test(G, train_frac=0.51):
         print("Edges requested: train = {}, test = {}".format(num_train_E, num_E - num_train_E))
         print("Edges returned: train = {}, test = {}".format(len(train_E), num_E - len(train_E)))
     else:
-        # Add more edges to train set from test set until it has deseired size
+        # Add more edges to train set from test set until it has desired size
         edges = set(random.sample(test_E, num_toadd))
         test_E = test_E - edges
         train_E = train_E | edges
@@ -223,6 +323,73 @@ def split_train_test(G, train_frac=0.51):
     assert len(E) == len(test_E) + len(train_E)
     if num_toadd > 0:
         assert num_train_E == len(train_E)
+
+    # Return the sets of edges
+    return train_E, test_E
+
+
+def rand_split_train_test(G, train_frac=0.51):
+    r"""
+    Computes one train/test split of edges from an input graph and returns the results.
+    The train/test split is computed by randomly removing 1-train_frac edges from the graph.
+    From the remaining edges, those in the mainCC constitute the train edges. From the set
+    of removed edges, those whose nodes are in the train set, are considered part or the
+    test set. The proportion of train/test edges returned might not be the required one.
+    The train set will be (weakly) connected and span all nodes of the input graph.
+    Input graph (digraph) can contain one or many (weakly) connected components.
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph
+    train_frac : float, optional
+        The relative size (in range (0.0, 1.0]) of the train set with respect to the total number of edges in the graph.
+        Default is 0.51.
+
+    Returns
+    -------
+    train_E : set
+        The set of train edges
+    test_E : set
+        The set of test edges
+    """
+    if train_frac <= 0.0 or train_frac > 1.0:
+        raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
+    if train_frac == 1.0:
+        return set(G.edges()), set()
+
+    # Create a set of all edges in G
+    E = set(G.edges)
+    num_E = len(E)
+
+    # Compute the potential number of train and test edges which corresponds to the fraction given
+    num_train_E = int(np.ceil(train_frac * num_E))
+    num_test_E = int(num_E - num_train_E)
+
+    # Randomly remove 1-train_frac edges from the graph and store them as potential test edges
+    pte_edges = set(random.sample(E, num_test_E))
+
+    # The remaining edges are potential train edges
+    ptr_edges = E - pte_edges
+
+    # Create a graph containing all ptr_edges and compute the mainCC
+    if G.is_directed():
+        H = nx.DiGraph()
+        H.add_edges_from(ptr_edges)
+        maincc = max(nx.weakly_connected_component_subgraphs(H), key=len)
+    else:
+        H = nx.Graph()
+        H.add_edges_from(ptr_edges)
+        maincc = max(nx.connected_component_subgraphs(H), key=len)
+
+    # The edges in the mainCC graph are the actual train edges
+    train_E = set(maincc.edges)
+
+    # Remove potential test edges for which the end nodes do not exist in the train_E
+    test_E = set()
+    for (src, dst) in pte_edges:
+        if src in maincc.nodes and dst in maincc.nodes:
+            test_E.add((src, dst))
 
     # Return the sets of edges
     return train_E, test_E
@@ -255,6 +422,8 @@ def naive_split_train_test(G, train_frac=0.51):
     _sanity_check(G)
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
+    if train_frac == 1.0:
+        return set(G.edges()), set()
 
     # Is directed
     directed = G.is_directed()
@@ -353,7 +522,7 @@ def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=
         num_fe_test = len(test_E)
 
     # Make sure the required amount of false edges can be generated
-    max_nonedges = len(V) * len(V) - len(G.edges)
+    max_nonedges = len(V) * len(V) - len(train_E)
     if num_fe_train > max_nonedges:
         raise ValueError('Too many false train edges required! Max available for train+test is {}'.format(max_nonedges))
     else:
@@ -552,7 +721,7 @@ def redges_false(train_E, test_E, output_path=None):
 def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_false, split_id=0):
     r"""
     Writes the sets of true and false edges to files in the provided path. All files will share
-    the same split number as an identifier.
+    the same split number as an identifier. If any folder in the path do not exist, it will be generated.
     
     Parameters
     ----------
@@ -574,14 +743,20 @@ def store_train_test_splits(output_path, train_E, train_E_false, test_E, test_E_
     filenames : list
         A list of strings, the names given to the 4 files where the true and false train and test edge are stored.
     """
+    # Create path if it does not exist
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
     # Convert edge-lists to numpy arrays
     train_E = np.array([list(edge_tuple) for edge_tuple in train_E])
     train_E_false = np.array([list(edge_tuple) for edge_tuple in train_E_false])
     test_E = np.array([list(edge_tuple) for edge_tuple in test_E])
     test_E_false = np.array([list(edge_tuple) for edge_tuple in test_E_false])
 
-    filenames = ("{}_trE_{}.csv".format(output_path, split_id), "{}_negTrE_{}.csv".format(output_path, split_id),
-                 "{}_teE_{}.csv".format(output_path, split_id), "{}_negTeE_{}.csv".format(output_path, split_id))
+    filenames = (os.path.join(output_path, "trE_{}.csv".format(split_id)),
+                 os.path.join(output_path, "negTrE_{}.csv".format(split_id)),
+                 os.path.join(output_path, "teE_{}.csv".format(split_id)),
+                 os.path.join(output_path, "negTeE_{}.csv".format(split_id)))
 
     # Save the splits in different files
     np.savetxt(fname=filenames[0], X=train_E, delimiter=',', fmt='%d')
@@ -652,3 +827,236 @@ def check_overlap(filename, num_sets):
         print("Union of {} sets is {}".format(i+2, len(union)))
         print("Jaccard coefficient: {}".format(len(intrs)/len(union)))
         print("")
+
+
+def random_edge_sample(a, samp_frac=0.01, directed=False):
+    r"""
+    Returns a sample of positive and negative edges from the given graph represented by `a` selected uniformly at
+    random without replacement. If the directed flag is set to False the samples are obtained only from the upper
+    triangle.
+
+    Parameters
+    ----------
+    a : sparse matrix
+        A sparse adjacency matrix representing a graph.
+    samp_frac : float, optional
+        An float representing the fraction of elements to sample. Default is 1.0 (1%)
+    directed : bool, optional
+        A flag indicating if the adjacency matrix should be considered directed or undirected. If undirected
+        indices are obtained only from the lower triangle. Default is False.
+
+    Returns
+    -------
+    pos_e : ndarray
+        Positive edges
+    neg_e : ndarray
+        Negative edges
+    """
+    n = a.shape[0]
+
+    if directed:
+        num_samp = int(n ** 2 * samp_frac / 100)
+        lin_indx_a = np.ravel_multi_index(a.nonzero(), (n, n))
+        # randomly generate linear indices
+        lin_indx = np.random.randint(0, n ** 2, num_samp)
+    else:
+        # For undir graphs we only need to sample half the num nodes
+        num_samp = int((n*(n-1))/2 * (samp_frac / 100))
+        lin_indx_a = np.ravel_multi_index(triu(a, k=1).nonzero(), (n, n))
+        ij = np.random.randint(0, n, size=(2, num_samp))
+        ij.sort(axis=0)
+        lin_indx = np.ravel_multi_index((ij[0], ij[1]), (n, n))
+
+    pos_e = np.intersect1d(lin_indx, lin_indx_a)
+    neg_e = np.setdiff1d(lin_indx, lin_indx_a)
+
+    # Remove the self edges
+    lin_diag_indxs = np.ravel_multi_index(np.diag_indices(n), (n, n))
+    pos_e = np.setdiff1d(pos_e, lin_diag_indxs)
+    neg_e = np.setdiff1d(neg_e, lin_diag_indxs)
+
+    # Unravel the linear indices to obtain src, dst pairs
+    pos_e = np.array(np.unravel_index(np.array(pos_e), (n, n))).T
+    neg_e = np.array(np.unravel_index(np.array(neg_e), (n, n))).T
+
+    return pos_e, neg_e
+
+
+def random_edge_sample_other(a, samp_frac=0.01, directed=False):
+    r"""
+    Returns a sample of positive and negative edges from the given graph represented by `a` selected uniformly at
+    random without replacement. If the directed flag is set to False the samples are obtained only from the upper
+    triangle.
+
+    A different take on the random sampling technique. Probably less efficient than the other one. For undir graphs
+    generates lots of candidates also from the bottom triangle to reach the desired density, this is not as efficient
+    as the other version.
+
+    Parameters
+    ----------
+    a : sparse matrix
+        A sparse adjacency matrix representing a graph.
+    samp_frac : float, optional
+        An float representing the fraction of elements to sample. Default is 0.01 (1%)
+    directed : bool, optional
+        A flag indicating if the adjacency matrix should be considered directed or undirected. If undirected
+        indices are obtained only from the lower triangle. Default is False.
+
+    Returns
+    -------
+    pos_e : ndarray
+        Positive edges
+    neg_e : ndarray
+        Negative edges
+    """
+    n = a.shape[0]
+    num_samp = int(n**2 * samp_frac)
+
+    # Generate sparse random matrix representing mask of samples
+    density = (num_samp + n) / n**2
+    mask = sp.sparse.rand(n, n, density)
+
+    if not directed:
+        # For undir graphs we only look at the upper triangle
+        mask = triu(mask, k=1)
+    else:
+        # Remove elements from diagonal
+        mask.setdiag(0)
+        mask.eliminate_zeros()
+
+    mask.data[:] = 1
+    lin_indx_samp = np.ravel_multi_index(mask.nonzero(), (n, n))
+
+    # All positive edges sampled in mask will stay in aux
+    aux = mask.multiply(a)
+    pos_e = np.array(aux.nonzero()).T
+
+    # The rest of the lin indx not positive are negative
+    lin_indx_ne = np.setdiff1d(lin_indx_samp, np.ravel_multi_index(aux.nonzero(), (n, n)))
+    neg_e = np.array(np.unravel_index(lin_indx_ne, (n, n)))
+
+    return pos_e, neg_e
+
+
+def quick_split(G, train_frac=0.51):
+    r"""
+    Computes one train/test split of edges from an input graph and returns the results.
+    The train set will be (weakly) connected and span all nodes of the input graph (digraph).
+    This implementation uses a depth first tree to obtain edges covering all nodes for the train graph.
+    Input graph (digraph) cannot contain more than one (weakly) connected component.
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph
+    train_frac : float, optional
+        The relative size (in range (0.0, 1.0]) of the train set with respect to the total number of edges in the graph.
+        Default is 0.51.
+
+    Returns
+    -------
+    train_E : array
+       Column array of train edges as pairs src, dst
+    test_E : array
+       Column array of test edges as pairs src, dst
+    """
+    _sanity_check(G)
+    if train_frac <= 0.0 or train_frac > 1.0:
+        raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
+    if train_frac == 1.0:
+        return set(G.edges()), set()
+
+    # Restrict input graph to its main cc
+    if nx.is_directed(G):
+        a = nx.adj_matrix(G)
+    else:
+        a = triu(nx.adj_matrix(G), k=1)
+
+    # Compute initial statistics and linear indx of nonzeros
+    n = a.shape[0]
+    num_tr_e = int(a.nnz * train_frac)
+    nz_lin_ind = np.ravel_multi_index(a.nonzero(), (n, n))
+
+    # Build a dft starting at a random node. If dir false returns only upper triang
+    dft = depth_first_tree(a, np.random.randint(0, a.shape[0]), directed=nx.is_directed(G))
+    if nx.is_directed(G):
+        dft_lin_ind = np.ravel_multi_index(dft.nonzero(), (n, n))
+    else:
+        dft_lin_ind = np.ravel_multi_index(triu(tril(dft).T + dft, k=1).nonzero(), (n, n))
+
+    # From all nonzero indx remove those in dft. From the rest take enough to fill train quota. Rest are test
+    rest_lin_ind = np.setdiff1d(nz_lin_ind, dft_lin_ind)
+    aux = np.random.choice(rest_lin_ind, num_tr_e-len(dft_lin_ind), replace=False)
+    lin_tr_e = np.union1d(dft_lin_ind, aux)
+    lin_te_e = np.setdiff1d(rest_lin_ind, aux)
+
+    # Unravel the linear indices to obtain src, dst pairs
+    tr_e = np.array(np.unravel_index(np.array(lin_tr_e), (n, n))).T
+    te_e = np.array(np.unravel_index(np.array(lin_te_e), (n, n))).T
+    return tr_e, te_e
+
+
+def quick_nonedges(G, train_frac=0.51, fe_ratio=1.0):
+    r"""
+    Computes one train/test split of non-edges from an input graph and returns the results.
+    The negative train and test edges will have no overlap. Also there will be no overlap between false train and test
+    edges and real ones. No selfloop false edges will be generated.
+    Input graph (digraph) cannot contain more than one (weakly) connected component.
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph
+    train_frac : float, optional
+        The relative size (in range (0.0, 1.0]) of the train false edge set w.r.t. total number of edges in graph.
+        Default is 0.51.
+    fe_ratio : float, optional
+        The ratio of negative to positive edges to sample. For fr_ratio > 0 and < 1 less false than true edges will be
+        generated. For fe_edges > 1 more false than true edges will be generated. Default 1, same amounts.
+
+    Returns
+    -------
+    train_E : array
+       Column array of train edges as pairs src, dst
+    test_E : array
+       Column array of test edges as pairs src, dst
+    """
+    # fe_ration can be anu float or keyworkd 'prop'
+    a = nx.adj_matrix(G)
+    n = a.shape[0]
+    density = a.nnz / n ** 2
+    if fe_ratio == 'prop':
+        fe_ratio = np.floor(1.0 / density)
+    if not nx.is_directed(G):
+        num_fe = int((a.nnz/2.0) * fe_ratio)
+    else:
+        num_fe = int(a.nnz * fe_ratio)
+    num_fe_tr = int(train_frac * num_fe)
+
+    # Make sure we have enough false edges
+    if num_fe > (n**2 - (a.nnz + n)):
+        raise ValueError('Too many false edges required!')
+        # warnings.warn('Too many false edges required in train+test! '
+        #              'Using maximum number of false test edges available: {}'.format(n**2-ut.nnz))
+        # return _getall_false_edges(G, (1.0 * num_fe_train) / max_nonedges)
+
+    # Get linear indexes of 1s in A
+    lin_indexes = np.ravel_multi_index(a.nonzero(), (n, n))
+    inv_indx = np.union1d(lin_indexes, np.ravel_multi_index(np.diag_indices(n), (n, n)))
+    # we could generate more FE than we need to make sure we find enough 0s
+    candidates = np.random.randint(0, n**2, size=int(num_fe/(1-density)))
+
+    # make sure there is no overlap
+    fe_lin_ind = np.setdiff1d(candidates, inv_indx)
+
+    while len(fe_lin_ind) < num_fe:
+        new_cands = np.random.randint(0, n ** 2, size=num_fe-len(fe_lin_ind))
+        valid_cands = np.setdiff1d(new_cands, inv_indx)
+        fe_lin_ind = np.union1d(fe_lin_ind, valid_cands)
+
+    fe_lin_ind = fe_lin_ind[:num_fe]
+    aux = np.array(np.unravel_index(fe_lin_ind, (n, n))).T
+    fe_tr = aux[:num_fe_tr, :]
+    fe_te = aux[num_fe_tr:, :]
+    return fe_tr, fe_te
+

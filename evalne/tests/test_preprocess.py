@@ -7,9 +7,11 @@
 from __future__ import division
 
 import random
+import time
+import networkx as nx
 
-from evalne.preprocessing import preprocess as pp
-from evalne.preprocessing import split_train_test as stt
+from evalne.utils import preprocess as pp
+from evalne.utils import split_train_test as stt
 
 
 def test():
@@ -60,41 +62,75 @@ def test_split():
     output_path = "./data/"
     test_name = "network.edgelist"
     subgraph_size = 400
+    train_frac = 0.5
+    directed = True
 
     # Load a graph
-    G = pp.load_graph(dataset_path + test_name, delimiter=",", comments='#', directed=True)
+    G = pp.load_graph(dataset_path + test_name, delimiter=",", comments='#', directed=directed)
 
     # Restrict graph to a sub-graph of 'subgraph_size' nodes
     SG = G.subgraph(random.sample(G.nodes, subgraph_size)).copy()
 
     # Preprocess the graph
-    SG, ids = pp.prep_graph(SG, relabel=True, del_self_loops=True)
+    PSG, ids = pp.prep_graph(SG, relabel=True, del_self_loops=True, maincc=True)
 
-    # Get stats of the preprocessed subgraph
-    pp.save_graph(SG, output_path + "prep_graph.edgelist", delimiter=",")
+    # Save the preprocessed graph
+    pp.save_graph(PSG, output_path + "prep_graph.edgelist", delimiter=",")
 
-    # Alternatively, train/test splits can be computed one at a time
-    train_E, test_E = stt.split_train_test(SG, train_frac=1.0)
+    # Compute train/test splits
+    start = time.time()
+    train_stt, test_stt = stt.split_train_test(PSG, train_frac=train_frac)
+    end = time.time() - start
+    print("Exec time stt: {}".format(end))
 
-    #print(train_E)
+    # Check that the train graph generated with stt has one single cc
+    if directed:
+        TG_stt = nx.DiGraph()
+        TG_stt.add_edges_from(train_stt)
+        print("Number of weakly CCs with stt: {}".format(nx.number_weakly_connected_components(TG_stt)))
+    else:
+        TG_stt = nx.Graph()
+        TG_stt.add_edges_from(train_stt)
+        print("Number of CCs with stt: {}".format(nx.number_connected_components(TG_stt)))
+    print("Number train edges stt: {}".format(len(train_stt)))
+    print("Number test edges stt: {}".format(len(test_stt)))
+    print("Number of nodes in train graph: {}".format(len(TG_stt.nodes)))
+
+    # Preprocess the graph
+    PSG, ids = pp.prep_graph(SG, relabel=True, del_self_loops=True, maincc=False)
+
+    # Compute train/test splits
+    start = time.time()
+    train_rstt, test_rstt = stt.rand_split_train_test(PSG, train_frac=train_frac)
+    end = time.time() - start
+    print("\nExec time rand_stt: {}".format(end))
+
+    # Check that the train graph generated with rstt has one single cc
+    if directed:
+        TG_rstt = nx.DiGraph()
+        TG_rstt.add_edges_from(train_rstt)
+        print("Number of weakly CCs with rstt: {}".format(nx.number_weakly_connected_components(TG_rstt)))
+    else:
+        TG_rstt = nx.Graph()
+        TG_rstt.add_edges_from(train_rstt)
+        print("Number of CCs with rstt: {}".format(nx.number_connected_components(TG_rstt)))
+    print("Number train edges rstt: {}".format(len(train_rstt)))
+    print("Number test edges rstt: {}".format(len(test_rstt)))
+    print("Number of nodes in train graph: {}".format(len(TG_rstt.nodes)))
 
     # Compute set of false edges
-    train_E_false, test_E_false = stt.generate_false_edges_owa(SG, train_E=train_E, test_E=test_E, num_fe_train=0,
-                                                               num_fe_test=100)
+    # train_E_false, test_E_false = stt.generate_false_edges_owa(SG, train_E=train_E, test_E=test_E, num_fe_train=0,
+    #                                                           num_fe_test=100)
     # train_E_false, test_E_false = stt.generate_false_edges_owa(G, train_E=train_E, test_E=test_E, num_fe_train=None,
     #                                                          num_fe_test=None, seed=99)
 
-    stt.store_train_test_splits('./', train_E, train_E_false, test_E, test_E_false, split_id=0)
+    # Store the edge splits generated
+    # stt.store_train_test_splits('./', train_E, train_E_false, test_E, test_E_false, split_id=0)
 
 
 if __name__ == "__main__":
 
-    # Run the tests
-    # print(np.__version__)
-    # print(sp.__version__)
-    # print(nx.__version__)
-    # print(sk.__version__)
     test()
-    #test_split()
+    test_split()
 
 

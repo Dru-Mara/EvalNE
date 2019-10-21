@@ -13,7 +13,7 @@ import os
 import networkx as nx
 
 from sys import argv
-from evalne.preprocessing import preprocess as pp
+from evalne.utils import preprocess as pp
 
 
 def main():

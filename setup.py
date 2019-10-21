@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="evalne",
-    version='0.2.3',
+    version='0.3.0',
     url="https://github.com/Dru-Mara/EvalNE",
     license="MIT License",
     author="Alexandru Mara",
@@ -16,10 +16,12 @@ setup(
     zip_safe=False,
     install_requires=[
         'numpy==1.15.1',
-        'scikit-learn>=0.19.0',
+        'scikit-learn==0.19.0',
         'networkx==2.2',
-        'scipy',
-        'matplotlib'
+        'scipy==0.19.1',
+        'matplotlib==2.2.4',
+        'tqdm',
+        'pandas'
     ],
     classifiers=[
         "Programming Language :: Python :: 2",

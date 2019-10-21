@@ -44,11 +44,5 @@ def time_test():
 
 if __name__ == "__main__":
 
-    # Check cmd args
-    # if len(argv) != 4:
-    #     print "ERROR: wrong number of parameters"
-    #     print "Usage: test_baselines.py <edgelist_path> <directed> <method>"
-    #     print "Example: test_baselines.py ../../../data/Facebook-wallposts/FB-subs2-prep.edgelist, true, 'cn'"
-    #     exit(-1)
     test()
     time_test()

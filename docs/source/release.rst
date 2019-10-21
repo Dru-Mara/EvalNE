@@ -1,6 +1,38 @@
 Release Log
 ===========
 
+EvalNE v0.3.0
+-------------
+
+Release date: 21 Oct 2019
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update
+
+New features
+~~~~~~~~~~~~
+- Old Evaluator class is now LPEvaluator
+- Added Network Reconstruction evaluation (NREvaluator)
+- Added Node Classification evaluation (NCEvaluator)
+- Train/validation splits are now required when initializing Evaluator classes
+- Added 3 new algorithms for computing train/test splits. One extremely scalable up to millions of nodes/edges
+- Improved error management and error logging
+- Edge embedding methods are now always tunned as method parameters. Results for the best are given.
+- For link prediction and network reconstruction the user can now evaluate the methods exclusively on train data.
+- Addes Scoresheet class to simplify output management
+- Export results directly to pandas dataframe and latex tables suppored
+
+Miscelaneous
+~~~~~~~~~~~~
+- Changed default parameters for EvalSplit
+- Added new parameter for EvalSplit.set_split()
+- Evaluation output is now always stored as pickle file
+- Execution time per method and dataset is not provided
+- Train/test average time per dataset is registered
+- Added `auto` mode for the Results class to decide if train or test data should be logged
+
+
 EvalNE v0.2.3
 -------------
 

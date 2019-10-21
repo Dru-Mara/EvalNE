@@ -1,4 +1,4 @@
-# EvalNE: A Python library for evaluating Network Embedding methods on Link Prediction #
+# EvalNE: A Python library for evaluating Network Embedding methods #
 
 [![Documentation Status](https://readthedocs.org/projects/evalne/badge/?version=latest)](https://evalne.readthedocs.io/en/latest/?badge=latest)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/Dru-Mara/EvalNE/issues)
@@ -8,10 +8,12 @@
 
 This repository provides the source code for EvalNE, an open-source Python
 library designed for assessing and comparing the performance of Network
-Embedding (NE) methods on Link Prediction (LP) tasks. The library intends to
-simplify this complex and time consuming evaluation process by providing
+Embedding (NE) methods on Link Prediction (LP), Network Reconstruction (NR), 
+Node Classification (NR) and vizualization tasks. The library intends to
+simplify these complex and time consuming evaluation processes by providing
 automation and abstraction of tasks such as hyper-parameter tuning, selection of
-train and test edges, negative sampling, selection of the scoring function, etc.
+train and test edges and nodes, negative sampling, selection of the adequate 
+scoring function, etc.
 
 The library can be used both as a command line tool and an API. In its current 
 version, EvalNE can evaluate unweighted directed and undirected simple networks.
@@ -51,20 +53,24 @@ When used as an API, EvalNE provides functions to:
 
 * Load and preprocess graphs
 * Obtain general graph statistics
-* Compute train/test/validation splits
-* Generate false edges
-* Evaluate link prediction from: 
+* Compute train/test/validation edge and node splits
+* Generate false edges using different algorithms
+* Evaluate link prediction and network reconstruction from methods returning: 
     * Node Embeddings
     * Edge Embeddings
     * Similarity scores (e.g. the ones given by LP heuristics)
+* Implements simple embedding vizualization routines
+* Includes node classification evaluation for Node embedding methods
 * Provides functions that compute edge embeddings from node feature vectors
     * Average
     * Hadamard
     * Weighted L1
     * Weighted L2
-* Any sklearn binary classifier can be used as a LP algorithm
-* Implements several accuracy metrics.
+* Can use any sklearn binary classifier as an LP algorithm
+* Implements several accuracy metrics
 * Includes parameter tuning subroutines
+* Method output can be provided as AUC and PR curves
+* Includes routines to generate tabular output and directly parse it to Latex
 
 
 ## Instalation ##
@@ -209,26 +215,34 @@ file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER optio
 ### As an API ###
 
 The library can be imported and used like any other Python module. Next we
-present a very basic example, for more complete ones we refer the user to the
+present a very basic LP example, for more complete ones we refer the user to the
 `examples/` folder.
 
 ```python
-from evalne.evaluation import evaluator
-from evalne.preprocessing import preprocess as pp
+from evalne.evaluation.evaluator import LPEvaluator
+from evalne.evaluation.split import EvalSplit
+from evalne.evaluation.score import Scoresheet
+from evalne.utils import preprocess as pp
 
 # Load and preprocess the network
 G = pp.load_graph('../evalne/tests/data/network.edgelist')
 G, _ = pp.prep_graph(G)
 
 # Create an evaluator and generate train/test edge split
-nee = evaluator.Evaluator()
-_ = nee.traintest_split.compute_splits(G)
+traintest_split = EvalSplit()
+traintest_split.compute_splits(G)
+nee = LPEvaluator(traintest_split)
+
+# Create a Scoresheet to store the results
+scoresheet = Scoresheet()
 
 # Set the baselines
 methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient']
 
 # Evaluate baselines
-nee.evaluate_baseline(methods=methods)
+for method in methods:
+    result = nee.evaluate_baseline(method=method)
+    scoresheet.log_results(result)
 
 try:
     # Check if OpenNE is installed
@@ -245,21 +259,24 @@ try:
     # Evaluate embedding methods
     for i in range(len(methods)):
         command = commands[i] + " --input {} --output {} --representation-size {}"
-        nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
-                         edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+        results = nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+                                   edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+        scoresheet.log_results(results)
 
 except ImportError:
     print("The OpenNE library is not installed. Reporting results only for the baselines...")
     pass
 
 # Get output
-results = nee.get_results()
-for result in results:
-    result.pretty_print()
+scoresheet.print_tabular()
 
 ``` 
 
 ### Output ###
+
+The library stores all the output generated in a single folder per execution. The name
+of this folder is: `{task}_eval_{month}{day}_{hour}{min}`. Where `{task}` is one of:
+lp, nr or nc.
 
 The library can provide two types of outputs, depending on the value of the SCORES option
 of the configuration file. If the keyword *all* is specified, the library will generate a 
@@ -271,14 +288,19 @@ file will be located in the same path from which the evaluation was run.
 Setting the SCORES option to `%(maximize)` will generate a similar output file as before.
 The content of this file, however, will be a table (Alg. x Networks) containing exclusively 
 the score specified in the MAXIMIZE option for each combination of method and network
-averaged over all experiment repeats. 
+averaged over all experiment repeats. In addition a second table indicating the average 
+execution time per method and dataset will be generated.
 
-Additionally, if the option TRAINTEST_PATH contains a valid filename, EvalNE will create
-a file with that name under each of the OUTPATHS provided. In each of these paths the
-library will store the true and false train and test sets of edge. 
+If the option CURVES is set to a valid option then for each method dataset and experiment 
+repeat a PR or ROC curve will be generated. If the option SAVE_PREP_NW is set to True, each
+evaluated network will be stored, in edgelist format, in a folder with the same name as the 
+network.
 
-**NOTE**: The tabular output is not available for mixes of directed and undirected networks.
-
+Finally, the library also generates an `eval.log` file and a `eval.pkl`. The first file 
+contains important information regarding the evaluation process such as methods whose 
+execution has failed, or validation scores. The second one encapsulates all the evaluation
+results as a pickle file. This file can be conveniently loaded and the results can be 
+transformed into e.g. pandas dataframes or latex tables.
 
 ## Citation ##
 

@@ -186,7 +186,7 @@ def adamic_adar_index(G, ebunch=None, neighbourhood='in'):
         A list of values in the same order as ebunch representing the similarity of each pair of nodes.
     """
     def predict(u, v):
-        return sum(1 / np.log(G.degree(w)) for w in nx.common_neighbors(G, u, v))
+        return sum(1.0 / np.log(G.degree(w)) for w in nx.common_neighbors(G, u, v))
 
     def predict_in(u, v):
         su = set(map(lambda e: e[0], G.in_edges(u)))
