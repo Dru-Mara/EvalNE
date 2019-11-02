@@ -285,13 +285,10 @@ class LPEvaluator(object):
                         # Log the best results
                         best_results, best_params = self._log_best(best_results, best_params, results, param_str, maximize)
 
-                    except ValueError:
+                    except (ValueError, IOError) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.trainvalid_split.nw_name))
 
-                    except IOError:
-                        logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.trainvalid_split.nw_name))
             else:
                 # All parameter combinations
                 combinations = list(itertools.product(*params))
@@ -319,12 +316,8 @@ class LPEvaluator(object):
                         # Log the best results
                         best_results, best_params = self._log_best(best_results, best_params, results, param_str, maximize)
 
-                    except ValueError:
-                        logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.trainvalid_split.nw_name))
-
-                    except IOError:
-                        logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
+                    except (ValueError, IOError) as e:
+                        logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.trainvalid_split.nw_name))
 
             # We found best params for each ee method, log that info and corresponding score
@@ -715,11 +708,12 @@ class LPEvaluator(object):
 
         # Predict
         train_pred = self.lp_model.predict_proba(tr_edge_embeds)[:, 1]
+        test_pred = None
         if te_edge_embeds is not None:
             test_pred = self.lp_model.predict_proba(te_edge_embeds)[:, 1]
-            return train_pred, test_pred
-        else:
-            return train_pred, None
+
+        # Return the predictions
+        return train_pred, test_pred
 
     def compute_results(self, data_split, method_name, train_pred, test_pred=None,
                         label_binarizer=LogisticRegression(solver='liblinear'), params=None):
@@ -929,13 +923,10 @@ class NREvaluator(LPEvaluator):
                         best_results, best_params = self._log_best(best_results, best_params, results, param_str,
                                                                    maximize, 'train')
 
-                    except ValueError:
+                    except (ValueError, IOError) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.traintest_split.nw_name))
 
-                    except IOError:
-                        logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.traintest_split.nw_name))
             else:
                 # All parameter combinations
                 combinations = list(itertools.product(*params))
@@ -964,11 +955,7 @@ class NREvaluator(LPEvaluator):
                         best_results, best_params = self._log_best(best_results, best_params, results, param_str,
                                                                    maximize, 'train')
 
-                    except ValueError:
-                        logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.traintest_split.nw_name))
-
-                    except IOError:
+                    except (ValueError, IOError) as e:
                         logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.traintest_split.nw_name))
 
