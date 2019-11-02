@@ -19,11 +19,12 @@ from collections import OrderedDict
 from collections import Counter
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import average_precision_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
+from sklearn.metrics import f1_score
+
 import matplotlib as mpl
 if os.environ.get('DISPLAY', '') == '':
     mpl.use('Agg')
@@ -31,20 +32,20 @@ import matplotlib.pyplot as plt
 
 
 class Scoresheet:
+    """
+    This class simplifies the logging and management of the evaluation results and execution times. Functions for
+    logging, plotting and saving the results are provided. The Scoresheet only logs the specified metrics and not
+    the full train or test predictions.
+
+    Parameters
+    ----------
+    tr_te : basestring, optional
+        A string indicating if the 'train' or 'test' results should be stored. Default is 'test'.
+    precatk_vals : list of int or None, optional
+        The values for which the precision at k should be computed. Default is None
+    """
 
     def __init__(self, tr_te='test', precatk_vals=None):
-        """
-        This class simplifies the logging and management of the evaluation results and execution times. Functions for
-        logging, plotting and saving the results are provided. The Scoresheet only logs the specified metrics and not
-        the full train or test predictions.
-
-        Parameters
-        ----------
-        tr_te : basestring, optional
-            A string indicating if the 'train' or 'test' results should be stored. Default is 'test'.
-        precatk_vals : list of int or None, optional
-            The values for which the precision at k should be computed. Default is None
-        """
         self._tr_te = tr_te
         self._precatk_vals = precatk_vals
         self._scoresheet = OrderedDict()
@@ -53,7 +54,7 @@ class Scoresheet:
     def log_results(self, results):
         r"""
         Logs the Results object or list of Results objects given as input. All metrics are stored including execution
-        time which is extracted form the Results class parameter list. Is the same combination of network/algorithm is
+        time which is extracted from the Results class parameter list. Is the same combination of network/algorithm is
         found more than once, the results are stored in a vector.
 
         Parameters
@@ -123,6 +124,12 @@ class Scoresheet:
         -------
         df : pandas.DataFrame
             A pandas DataFrame view of the Scoresheet for the specified metric.
+
+        Raises
+        ------
+        ValueError
+            If the requested metric does not exist.
+            If the Scoresheet is empty so a dataframe can not be generated.
         """
         if len(self._scoresheet) != 0:
             nw = next(iter(self._scoresheet))
@@ -232,7 +239,6 @@ class Scoresheet:
                             f.write((k3 + ':  \t ' + str(avg) + '\n ').encode())
                     else:
                         # Report all values for each exp repeat
-                        print(k3)
                         if k3 == 'edge_embed_method':
                             vals = self._scoresheet[k1][k2][k3]
                             f.write((k3 + ':  \t ' + str(vals) + '\n ').encode())
@@ -279,8 +285,12 @@ class Results(object):
         If the predictions returned by the model are not binary, this parameter indicates how these binary
         predictions should be computed in order to be able to provide metrics such as the confusion matrix.
         Any Sklear binary classifier can be used or the keyword 'median' which will used the prediction medians
-        as binarization thresholds.
-        Default is LogisticRegression(solver='liblinear')
+        as binarization thresholds. Default is LogisticRegression(solver='liblinear')
+
+    Raises
+    ------
+    AttributeError
+        If the label binarizer is set to an incorrect value.
     """
 
     def __init__(self, method, params, train_pred, train_labels, test_pred=None, test_labels=None,
@@ -295,10 +305,16 @@ class Results(object):
 
     @staticmethod
     def _check_binary(train_pred, test_pred):
-        if ((train_pred == 0) | (train_pred == 1)).all() and ((test_pred == 0) | (test_pred == 1)).all():
-            return True
+        if test_pred is None:
+            if ((train_pred == 0) | (train_pred == 1)).all():
+                return True
+            else:
+                return False
         else:
-            return False
+            if ((train_pred == 0) | (train_pred == 1)).all() and ((test_pred == 0) | (test_pred == 1)).all():
+                return True
+            else:
+                return False
 
     def _init(self, train_pred, train_labels, test_pred, test_labels):
         r"""
@@ -350,9 +366,9 @@ class Results(object):
             plt.title('{} train set {} curve'.format(self.method, curve))
         if filename is not None:
             plt.savefig(filename + '_' + curve + '.pdf')
+            plt.close()
         else:
             plt.show()
-            plt.clf()
 
     def plot(self, filename=None, results='auto', curve='all'):
         r"""
@@ -369,6 +385,11 @@ class Results(object):
         curve : basestring, optional
             Can be one of 'all', 'pr' or 'roc'.
             Default is 'all'.
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
         """
         # Get the appropriate train or test scores
         if results == 'train':
@@ -410,6 +431,11 @@ class Results(object):
             if test_scores is not None and 'train' otherwise.
         precatk_vals : list of int or None, optional
             The values for which the precision at k should be computed. Default is None
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
         """
         f = open(filename, 'a+')
         f.write("Method: {}".format(self.method))
@@ -420,31 +446,20 @@ class Results(object):
         # Get the appropriate train or test scores
         if results == 'train':
             f.write("\nTrain scores: ")
-            scores = self.train_scores
         elif results == 'test':
             if self.test_scores is not None:
                 f.write("\nTest scores: ")
-                scores = self.test_scores
             else:
                 raise ValueError('Test scores not initialized!')
         else:
             if self.test_scores is not None:
                 f.write("\nTest scores: ")
-                scores = self.test_scores
             else:
                 f.write("\nTrain scores: ")
-                scores = self.train_scores
 
-        f.write("\n tn = {}, fp = {}, fn = {}, tp = {}".format(scores.tn, scores.fp, scores.fn, scores.tp))
-        f.write("\n Precision = {} \n Recall = {}".format(scores.precision(), scores.recall()))
-        f.write("\n Fallout = {} \n Miss = {}".format(scores.fallout(), scores.miss()))
-        f.write("\n Accuracy = {} \n f_score = {}".format(scores.accuracy(), scores.f_score()))
-        f.write("\n Average_prec = {}".format(average_precision_score(scores.y_true, scores.y_pred)))
-        f.write("\n AUROC = {}".format(scores.auroc()))
-        if precatk_vals is not None:
-            for i in precatk_vals:
-                f.write("\n prec@{} = {}, ".format(i, scores.precisionatk(i)))
-            f.write("\n")
+        metric_names, metric_vals = self.get_all(results, precatk_vals)
+        for i in range(len(metric_names)):
+            f.write("\n {} = {}".format(metric_names[i], metric_vals[i]))
         f.write("\n\n")
         f.close()
 
@@ -459,6 +474,11 @@ class Results(object):
             if test_scores is not None and 'train' otherwise.
         precatk_vals : list of int or None, optional
             The values for which the precision at k should be computed. Default is None.
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
         """
         print("Method: {}".format(self.method))
         print("Parameters: ")
@@ -467,31 +487,20 @@ class Results(object):
         # Get the appropriate train or test scores
         if results == 'train':
             print("Train scores: ")
-            scores = self.train_scores
         elif results == 'test':
             if self.test_scores is not None:
                 print("Test scores: ")
-                scores = self.test_scores
             else:
                 raise ValueError('Test scores not initialized!')
         else:
             if self.test_scores is not None:
                 print("Test scores: ")
-                scores = self.test_scores
             else:
                 print("Train scores: ")
-                scores = self.train_scores
 
-        print(" tn = {} \n fp = {} \n fn = {} \n tp = {}".format(scores.tn, scores.fp, scores.fn, scores.tp))
-        print(" Precision = {} \n Recall = {}".format(scores.precision(), scores.recall()))
-        print(" Fallout = {} \n Miss = {}".format(scores.fallout(), scores.miss()))
-        print(" AUROC = {} \n Accuracy = {} \n f_score = {}"
-              .format(scores.auroc(), scores.accuracy(), scores.f_score()))
-        if precatk_vals is not None:
-            res_str = ""
-            for i in precatk_vals:
-                res_str += " prec@{} = {}, ".format(i, scores.precisionatk(i))
-            print(res_str)
+        metric_names, metric_vals = self.get_all(results, precatk_vals)
+        for i in range(len(metric_names)):
+            print("{} = {}".format(metric_names[i], metric_vals[i]))
         print("")
 
     def get_all(self, results='auto', precatk_vals=None):
@@ -505,6 +514,11 @@ class Results(object):
             if test_scores is not None and 'train' otherwise.
         precatk_vals : list of int or None, optional
             The values for which the precision at k should be computed. Default is None.
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
         """
         # Get the appropriate train or test scores
         if results == 'train':
@@ -538,6 +552,15 @@ class Results(object):
 class Scores(object):
     """
     Object that encapsulates the results (train or test) and exposes methods to compute different scores
+
+    Parameters
+    ----------
+    y_true : ndarray
+        An array containing the true labels.
+    y_pred : ndarray
+       An array containing the predictions.
+    y_bin : ndarray
+        An array containing binarized predictions.
     """
 
     def __init__(self, y_true, y_pred, y_bin):
@@ -666,3 +689,194 @@ class Scores(object):
                 np.sum(self.y_true) > (1 - tolerance) * len(self.y_true):
             warnings.warn('AUROC is not recommended in the case of extreme class imbalance. ', Warning)
         return roc_auc_score(self.y_true, self.y_pred)
+
+
+class NCResults(object):
+    """
+    Contains the train and test results of the link prediction task for a certain method and set of parameters.
+    Exposes the train and test score objects and implements functionality for conveniently retrieving results as
+    plots, text files or command line outputs.
+
+    Parameters
+    ----------
+    method : basestring
+        A string representing the name of the method associated with these scores.
+    params : dict
+        A dictionary of parameters used to obtain these scores. Includes wall clock time of method evaluation.
+    train_pred : ndarray
+        An array containing the train predictions.
+    train_labels : ndarray
+        An array containing the train true labels.
+    test_pred : ndarray, optional
+        An array containing the test predictions. Default is None.
+    test_labels : ndarray, optional
+        An array containing the test true labels. Default is None.
+
+    Raises
+    ------
+    AttributeError
+        If the label binarizer is set to an incorrect value.
+    """
+
+    def __init__(self, method, params, train_pred, train_labels, test_pred=None, test_labels=None):
+        self.params = params
+        self.method = method
+        self.train_scores = None
+        self.test_scores = None
+        self._init(train_pred, train_labels, test_pred, test_labels)
+
+    def _init(self, train_pred, train_labels, test_pred, test_labels):
+        r"""
+        Initializes the train and test scores.
+        """
+        # Create the scoresheets
+        self.train_scores = NCScores(y_true=train_labels, y_pred=train_pred)
+        if test_pred is not None:
+            self.test_scores = NCScores(y_true=test_labels, y_pred=test_pred)
+
+    def save(self, filename, results='auto'):
+        r"""
+        Saves to a file the method name, parameters, if scores are for train or test data and all the scores.
+
+        Parameters
+        ----------
+        filename : basestring
+            The name of the output file where the results will be stored.
+        results : basestring, optional
+            A string indicating if the 'train' or 'test' results should be saved. Default is 'auto' which selects 'test'
+            if test_scores is not None and 'train' otherwise.
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
+        """
+        f = open(filename, 'a+')
+        f.write("Method: {}".format(self.method))
+        f.write("\nParameters: ")
+        for k, v in self.params.items():
+            f.write(str(k) + ": " + str(v) + ", ")
+
+        # Get the appropriate train or test scores
+        if results == 'train':
+            f.write("\nTrain scores: ")
+        elif results == 'test':
+            if self.test_scores is not None:
+                f.write("\nTest scores: ")
+            else:
+                raise ValueError('Test scores not initialized!')
+        else:
+            if self.test_scores is not None:
+                f.write("\nTest scores: ")
+            else:
+                f.write("\nTrain scores: ")
+
+        metric_names, metric_vals = self.get_all(results)
+        for i in range(len(metric_names)):
+            f.write("\n {} = {}".format(metric_names[i], metric_vals[i]))
+        f.write("\n\n")
+        f.close()
+
+    def pretty_print(self, results='auto'):
+        r"""
+        Prints to screen the method name, parameters, if scores are for train or test data and all the scores available.
+
+        Parameters
+        ----------
+        results : basestring, optional
+            A string indicating if the 'train' or 'test' results should be shown. Default is 'auto' which selects 'test'
+            if test_scores is not None and 'train' otherwise.
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
+        """
+        print("Method: {}".format(self.method))
+        print("Parameters: ")
+        print(self.params.items())
+
+        # Get the appropriate train or test scores
+        if results == 'train':
+            print("Train scores: ")
+        elif results == 'test':
+            if self.test_scores is not None:
+                print("Test scores: ")
+            else:
+                raise ValueError('Test scores not initialized!')
+        else:
+            if self.test_scores is not None:
+                print("Test scores: ")
+            else:
+                print("Train scores: ")
+
+        metric_names, metric_vals = self.get_all(results)
+        for i in range(len(metric_names)):
+            print("{} = {}".format(metric_names[i], metric_vals[i]))
+        print("")
+
+    def get_all(self, results='auto', precatk_vals=None):
+        r"""
+        Returns all the metrics available and their associated values as two lists.
+
+        Parameters
+        ----------
+        results : basestring, optional
+            A string indicating if the 'train' or 'test' results should be shown. Default is 'auto' which selects 'test'
+            if test_scores is not None and 'train' otherwise.
+        precatk_vals : list of int or None, optional
+            Not used.
+
+        Raises
+        ------
+        ValueError
+            If test results are required but not initialized in constructor.
+        """
+        # Get the appropriate train or test scores
+        if results == 'train':
+            scores = self.train_scores
+        elif results == 'test':
+            if self.test_scores is not None:
+                scores = self.test_scores
+            else:
+                raise ValueError('Test scores not initialized!')
+        else:
+            if self.test_scores is not None:
+                scores = self.test_scores
+            else:
+                scores = self.train_scores
+
+        # Add the available scores
+        metric_names = ['f1_micro', 'f1_macro', 'f1_weighted']
+        metric_vals = [scores.f1_micro(), scores.f1_macro(), scores.f1_weighted()]
+
+        return metric_names, metric_vals
+
+
+class NCScores(object):
+    """
+    Object that encapsulates the results (train or test) and exposes methods to compute different scores
+
+    Parameters
+    ----------
+    y_true : ndarray
+        An array containing the true labels.
+    y_pred : ndarray
+       An array containing the predictions.
+    y_bin : ndarray
+        An array containing binarized predictions.
+    """
+
+    def __init__(self, y_true, y_pred):
+        self.y_true = np.array(y_true)
+        self.y_pred = np.array(y_pred)
+        self._sorted = sorted(zip(self.y_true, self.y_pred), key=lambda x: x[1], reverse=True)
+
+    def f1_micro(self):
+        return f1_score(self.y_true, self.y_pred, average='micro')
+
+    def f1_macro(self):
+        return f1_score(self.y_true, self.y_pred, average='macro')
+
+    def f1_weighted(self):
+        return f1_score(self.y_true, self.y_pred, average='weighted')

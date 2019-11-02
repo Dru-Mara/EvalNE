@@ -91,9 +91,8 @@ class EvalSplit(object):
     def set_splits(self, train_E, train_E_false=None, test_E=None, test_E_false=None, directed=False, nw_name='test',
                    TG=None, split_id=0, split_alg='spanning_tree', owa=True, verbose=False):
         """
-        This method allows the user to set the train/test true and false edge sets manually.
-        All sets are required as well as a parameter indicating if the graph is directed or not.
-        The sets of false edges can be empty.
+        This method allows the user to set the train graph and train/test true and false edge sets manually.
+        The test edges as well as false train and test edges can be empty.
 
         Parameters
         ----------
@@ -111,17 +110,23 @@ class EvalSplit(object):
             A string indicating the name of the dataset from which this split was generated. Default is `test`.
             This is required in order to keep track of the evaluation results.
         TG : nx.Graph, optional
-            A train graph spanned by the train edges. Optional, if not provided will be computed from train edges.
-            Default is None.
+            A train graph containing all the train edges or being a superset of them. If not provided will be
+            computed from the train edges. Default is None.
         split_id : int, optional
             An ID that identifies this particular train/test split. Default is 0.
         split_alg : basestring, optional
-            Indicates the algorithm used to generate the train/test splits. Options are method based on spanning tree,
-            random edge split and naive removal and connectedness evaluation. Default is `spanning_tree`.
+            Indicates the algorithm used to generate the train/test splits. Options are method based on spanning tree
+            (`spanning_tree`), random edge split (`random`), naive removal and connectedness check (`naive`) and
+            fast BFS spanning tree (`fast`). Default is `spanning_tree`.
         owa : bool, optional
             Encodes the belief that the network respects or not the open world assumption. Default is True.
         verbose : bool, optional
             If True print progress info. Default is False.
+
+        Raises
+        ------
+        ValueError
+            If the train edge set is not provided.
         """
         if len(train_E) != 0:
             if train_E_false is not None:
@@ -186,7 +191,7 @@ class EvalSplit(object):
         if verbose:
             print("Edge splits computed using {} alg. ready.".format(self.split_alg))
 
-    def read_splits(self, filename, split_id, directed, nw_name, verbose=False):
+    def read_splits(self, filename, split_id, directed=False, nw_name='test', verbose=False):
         """
         Reads true and false train and test edge splits from file.
 
@@ -196,11 +201,11 @@ class EvalSplit(object):
             The filename shared by all edge splits as given by the 'store_train_test_splits' method
         split_id : int
             The ID of the edge splits to read. As provided by the 'store_train_test_splits' method
-        directed : bool
-            True if the splits correspond to a directed graph, false otherwise
-        nw_name : basestring
+        directed : bool, optional
+            True if the splits correspond to a directed graph, false otherwise. Default is False.
+        nw_name : basestring, optional
             A string indicating the name of the dataset from which this split was generated.
-            This is required in order to keep track of the evaluation results.
+            This is required in order to keep track of the evaluation results in a Scoresheet object. Default is 'test'.
         verbose : bool, optional
             If True print progress info. Default is False.
         """
@@ -251,6 +256,11 @@ class EvalSplit(object):
             The set of test edges
         test_false_E : set
             The set of false test edges
+
+        Raises
+        ------
+        ValueError
+            If the edge split algorithm is unknown.
         """
         # Compute train/test split
         if split_alg == 'random':

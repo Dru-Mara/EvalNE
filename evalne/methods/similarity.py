@@ -10,7 +10,6 @@
 # All these methods return a similarity score for each pair of input nodes.
 # MultiGraphs and weighted graphs are not supported!
 
-# TODO: Probably should change the raise ValueError by a call to the function treating the directed graph as undir.
 # TODO: the apply_prediction method should probably return a numpy array (like edge_embeddings does) rather than a list.
 
 from __future__ import division
@@ -23,7 +22,8 @@ __all__ = ['common_neighbours',
            'adamic_adar_index',
            'resource_allocation_index',
            'preferential_attachment',
-           'random_prediction']
+           'random_prediction',
+           'all_baselines']
 
 
 def _apply_prediction(G, func, ebunch=None):
@@ -48,6 +48,38 @@ def _apply_prediction(G, func, ebunch=None):
     if ebunch is None:
         ebunch = list(G.edges)
     return list(map(lambda e: func(e[0], e[1]), ebunch))
+
+
+def all_baselines(G, ebunch, neighbourhood='in'):
+    """
+    Computes a 5-dimensional embedding for each graph edge as an aggregation of the following 5 LP heuristics:
+    [CN, JC, AA, RAI, PA.]
+
+    Parameters
+    ----------
+    G : graph
+        A NetworkX graph.
+    ebunch : iterable of node pairs, optional
+        Common neighbours will be computed for each pair of nodes given in the iterable. The pairs must
+        be given as 2-tuples (u, v) where u and v are nodes in the graph. If ebunch is None then all
+        non-existent edges in the graph will be used. Default value is None.
+    neighbourhood : string, optional
+        For directed graphs determines if the in or the out-neighbourhoods of nodes should be used.
+        Default value is 'in'.
+
+    Returns
+    -------
+    emb : numpy array
+        A numpy array representing the edge embeddings in the same order as ebunch.
+    """
+    emb = np.zeros((len(ebunch), 5))
+    for i in range(len(ebunch)):
+        emb[i][0] = common_neighbours(G, [ebunch[i]], neighbourhood)[0]
+        emb[i][1] = jaccard_coefficient(G, [ebunch[i]], neighbourhood)[0]
+        emb[i][2] = adamic_adar_index(G, [ebunch[i]], neighbourhood)[0]
+        emb[i][3] = resource_allocation_index(G, [ebunch[i]], neighbourhood)[0]
+        emb[i][4] = preferential_attachment(G, [ebunch[i]], neighbourhood)[0]
+    return emb
 
 
 def common_neighbours(G, ebunch=None, neighbourhood='in'):
@@ -75,6 +107,11 @@ def common_neighbours(G, ebunch=None, neighbourhood='in'):
     -------
     sim : list
         A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+
+    Raises
+    ------
+    ValueError
+        If G is directed and neighbourhood is not one of 'in' or 'out'.
     """
     def predict(u, v):
         return len(set(G[u]) & set(G[v]))
@@ -125,6 +162,11 @@ def jaccard_coefficient(G, ebunch=None, neighbourhood='in'):
     -------
     sim : list
         A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+
+    Raises
+    ------
+    ValueError
+        If G is directed and neighbourhood is not one of 'in' or 'out'.
     """
     def predict(u, v):
         union_size = len(set(G[u]) | set(G[v]))
@@ -184,6 +226,11 @@ def adamic_adar_index(G, ebunch=None, neighbourhood='in'):
     -------
     sim : list
         A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+
+    Raises
+    ------
+    ValueError
+        If G is directed and neighbourhood is not one of 'in' or 'out'.
     """
     def predict(u, v):
         return sum(1.0 / np.log(G.degree(w)) for w in nx.common_neighbors(G, u, v))
@@ -246,6 +293,11 @@ def resource_allocation_index(G, ebunch=None, neighbourhood='in'):
     -------
     sim : list
         A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+
+    Raises
+    ------
+    ValueError
+        If G is directed and neighbourhood is not one of 'in' or 'out'.
     """
     def predict(u, v):
         return sum(1 / G.degree(w) for w in nx.common_neighbors(G, u, v))
@@ -308,6 +360,11 @@ def preferential_attachment(G, ebunch=None, neighbourhood='in'):
     -------
     sim : list
         A list of values in the same order as ebunch representing the similarity of each pair of nodes.
+
+    Raises
+    ------
+    ValueError
+        If G is directed and neighbourhood is not one of 'in' or 'out'.
     """
     def predict(u, v):
         return G.degree(u) * G.degree(v)

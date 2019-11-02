@@ -71,6 +71,7 @@ def evaluate(setup):
 
     # Initialize some variables
     edge_split_time = list()
+    lp_coef = dict()
     repeats = setup.lp_num_edge_splits if setup.task == 'lp' else 1
     t = tqdm(total=len(inpaths) * repeats)
     t.set_description(desc='Progress on {} task'.format(setup.task))
@@ -88,8 +89,14 @@ def evaluate(setup):
                 os.makedirs(nw_outpath)
 
         # Load and preprocess the graph
-        G = preprocess(setup, nw_outpath, i)
-        # labels = read_labels(setup.labelpath[i], ids)
+        G, ids = preprocess(setup, nw_outpath, i)
+        if setup.task == 'nc':
+            try:
+                labels = pp.read_labels(setup.labelpaths[i], idx_mapping=ids)
+            except (ValueError, IOError) as e:
+                logging.exception('Exception occurred while reading labels of `{}` network. Skipping network eval...'
+                                  .format(setup.names[i]))
+                break
 
         # For each repeat of the experiment generate new edge splits
         for repeat in range(repeats):
@@ -97,8 +104,10 @@ def evaluate(setup):
             print('\nRepetition {} of experiment...'.format(repeat))
             print('-------------------------------------')
 
+            # Create train and validation edge splits
             traintest_split = EvalSplit()
             trainvalid_split = EvalSplit()
+
             split_time = time.time()
             if setup.task == 'lp':
                 # For LP compute train/test and train/valid splits
@@ -124,15 +133,9 @@ def evaluate(setup):
                 # Create an NR evaluator
                 nee = NREvaluator(traintest_split, setup.embed_dim, setup.lp_model)
             else:
-                # For NC no train test split needed, only train valid
-                traintest_split.set_splits(train_E=G.edges, train_E_false=None, test_E=None, test_E_false=None,
-                                           directed=nx.is_directed(G), nw_name=setup.names[i], TG=G)
-                trainvalid_split.compute_splits(G, nw_name=setup.names[i],
-                                                train_frac=setup.trainvalid_frac, split_alg=setup.split_alg,
-                                                owa=setup.owa, fe_ratio=setup.fe_ratio, split_id=repeat,
-                                                verbose=setup.verbose)
-                # Create an NC evaluator
-                nee = NCEvaluator(trainvalid_split, setup.embed_dim, setup.lp_model)
+                # Create an NC evaluator (train/valid fraction hardcoded to 10%)
+                nee = NCEvaluator(G, labels, setup.names[i], setup.nc_num_node_splits, setup.nc_node_fracs, 0.2,
+                                  setup.embed_dim)
 
             edge_split_time.append(time.time() - split_time)
 
@@ -142,10 +145,13 @@ def evaluate(setup):
 
             # Evaluate other NE methods
             if setup.methods_opne is not None or setup.methods_other is not None:
-                eval_other(setup, nee, i, scoresheet, repeat, nw_outpath)
+                lp_coef = eval_other(setup, nee, i, scoresheet, repeat, nw_outpath)
 
             # Update progress bar
             t.update(1)
+
+        # Store in a pickle file the results up to this point in evaluation
+        scoresheet.write_pickle(os.path.join(outpath, 'eval.pkl'))
 
     # Store the results
     if setup.scores is not None:
@@ -154,13 +160,16 @@ def evaluate(setup):
         else:
             scoresheet.write_tabular(filename=os.path.join(outpath, 'eval_output.txt'), metric=setup.scores)
             scoresheet.write_tabular(filename=os.path.join(outpath, 'eval_output.txt'), metric='eval_time')
-        scoresheet.write_pickle(os.path.join(outpath, 'eval.pkl'))
+    scoresheet.write_pickle(os.path.join(outpath, 'eval.pkl'))
 
     # Close progress bar
     t.close()
     print('Average edge split times per dataset:')
     print(setup.names)
     print(np.array(edge_split_time).reshape(-1, repeats).mean(axis=1))
+    if setup.task != 'nc':
+        print('Coefficients of LP model (LogisticRegression) for each NE method:')
+        print(lp_coef)
     logging.info('Evaluation end\n\n')
 
 
@@ -189,7 +198,7 @@ def preprocess(setup, nw_outpath, i):
                       write_stats=setup.write_stats, write_weights=False, write_dir=True)
 
     # Return the preprocessed graph
-    return G
+    return G, ids
 
 
 def eval_baselines(setup, nee, i, scoresheet, repeat, nw_outpath):
@@ -231,31 +240,43 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
     """
     print('Evaluating Embedding methods...')
 
+    lp_coef = dict()
     if setup.methods_other is not None:
         # Evaluate non OpenNE method
         # -------------------------------
         for j in range(len(setup.methods_other)):
             try:
-                # Evaluate the method
-                results = nee.evaluate_cmd(method_name=setup.names_other[j], method_type=setup.embtype_other[j],
-                                           command=setup.methods_other[j],
-                                           edge_embedding_methods=setup.edge_embedding_methods,
-                                           input_delim=setup.input_delim_other[j],
-                                           output_delim=setup.output_delim_other[j],
-                                           tune_params=setup.tune_params_other[j], maximize=setup.maximize,
-                                           write_weights=setup.write_weights_other[j],
-                                           write_dir=setup.write_dir_other[j], verbose=setup.verbose)
+                if setup.task == 'nc':
+                    # Evaluate the method
+                    results = nee.evaluate_cmd(method_name=setup.names_other[j], command=setup.methods_other[j],
+                                               input_delim=setup.input_delim_other[j],
+                                               output_delim=setup.output_delim_other[j],
+                                               tune_params=setup.tune_params_other[j],
+                                               maximize=setup.maximize, write_weights=setup.write_weights_other[j],
+                                               write_dir=setup.write_dir_other[j], verbose=setup.verbose)
+                else:
+                    # Evaluate the method
+                    results = nee.evaluate_cmd(method_name=setup.names_other[j], method_type=setup.embtype_other[j],
+                                               command=setup.methods_other[j],
+                                               edge_embedding_methods=setup.edge_embedding_methods,
+                                               input_delim=setup.input_delim_other[j],
+                                               output_delim=setup.output_delim_other[j],
+                                               tune_params=setup.tune_params_other[j], maximize=setup.maximize,
+                                               write_weights=setup.write_weights_other[j],
+                                               write_dir=setup.write_dir_other[j], verbose=setup.verbose)
+                    # Store LP model coefficients
+                    if setup.embtype_other[j] != 'e2e':
+                        lp_coef.update({setup.names_other[j]: nee.lp_model.coef_})
 
-                # Log the list of results and generate plots if necessary
-                for res in results:
-                    scoresheet.log_results(res)
+                    # Generate plots if necessary
                     if setup.curves is not None:
-                        res.plot(filename=os.path.join(nw_outpath, '{}_rep_{}'.format(res.method, repeat)),
-                                 curve=setup.curves)
-            except ValueError:
-                logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
-                                  .format(setup.names_other[j], setup.names[i]))
-            except IOError:
+                        results.plot(filename=os.path.join(nw_outpath, '{}_rep_{}'.format(results.method, repeat)),
+                                     curve=setup.curves)
+
+                # Log the results
+                scoresheet.log_results(results)
+
+            except (ValueError, IOError) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_other[j], setup.names[i]))
 
@@ -271,23 +292,37 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                 else:
                     command = setup.methods_opne[j] + \
                               " --graph-format edgelist --input {} --output {} --representation-size {}"
-                results = nee.evaluate_cmd(method_name=setup.names_opne[j], method_type='ne', command=command,
-                                           input_delim=' ', edge_embedding_methods=setup.edge_embedding_methods,
-                                           output_delim=' ', tune_params=setup.tune_params_opne[j], maximize=setup.maximize,
-                                           write_weights=False, write_dir=True, verbose=setup.verbose)
 
-                # Log the list of results and generate plots if necessary
-                for res in results:
-                    scoresheet.log_results(res)
+                if setup.task == 'nc':
+                    # Evaluate the method
+                    results = nee.evaluate_cmd(method_name=setup.names_opne[j], command=command, input_delim=' ',
+                                               output_delim=' ', tune_params=setup.tune_params_opne[j],
+                                               maximize=setup.maximize, write_weights=False, write_dir=True,
+                                               verbose=setup.verbose)
+                else:
+                    # Evaluate the method
+                    results = nee.evaluate_cmd(method_name=setup.names_opne[j], method_type='ne', command=command,
+                                               input_delim=' ', edge_embedding_methods=setup.edge_embedding_methods,
+                                               output_delim=' ', tune_params=setup.tune_params_opne[j],
+                                               maximize=setup.maximize, write_weights=False, write_dir=True,
+                                               verbose=setup.verbose)
+                    # Store LP model coefficients
+                    lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
+
+                    # Generate plots if necessary
                     if setup.curves is not None:
-                        res.plot(filename=os.path.join(nw_outpath, '{}_rep_{}'.format(res.method, repeat)),
-                                 curve=setup.curves)
-            except ValueError:
+                        results.plot(filename=os.path.join(nw_outpath, '{}_rep_{}'.format(results.method, repeat)),
+                                     curve=setup.curves)
+
+                # Log the results
+                scoresheet.log_results(results)
+
+            except (ValueError, IOError) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_other[j], setup.names[i]))
-            except IOError:
-                logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
-                                  .format(setup.names_other[j], setup.names[i]))
+
+    # Return the coefficients of the LP model
+    return lp_coef
 
 
 if __name__ == "__main__":

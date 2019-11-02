@@ -13,6 +13,7 @@ import os
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LogisticRegressionCV
+from sklearn.tree import DecisionTreeClassifier
 
 
 class EvalSetup(object):
@@ -72,14 +73,16 @@ class EvalSetup(object):
             raise ValueError('The ratio of false edges, `FE_RATIO`, can not be 0!')
 
     def _check_inpaths(self):
-        numnets = len(self.__getattribute__('names'))
+        numnws = len(self.__getattribute__('names'))
+        if self.__getattribute__('task') == 'nc' and self.__getattribute__('labelpaths') is None:
+            raise ValueError('LABELPATHS for each network are required for node classification!')
         for k in self._config.options('NETWORKS'):
             if self.__getattribute__('task') == 'nc':
-                if k != 'directed' and len(self.__getattribute__(k)) != numnets:
+                if k != 'directed' and len(self.__getattribute__(k)) != numnws:
                     raise ValueError('Parameter `{}` in `NETWORKS` section does not have the required num. entries ({})'
                                      .format(k, self.__getattribute__(k)))
             else:
-                if k != 'directed' and k != 'labelpaths' and len(self.__getattribute__(k)) != numnets:
+                if k != 'directed' and k != 'labelpaths' and len(self.__getattribute__(k)) != numnws:
                     raise ValueError('Parameter `{}` in `NETWORKS` section does not have the required num. entries ({})'
                                      .format(k, self.__getattribute__(k)))
         # Check if the input file exist
@@ -96,15 +99,22 @@ class EvalSetup(object):
 
     def _checkparams(self):
         # Check if the maximize attribute is a correct one
-        if self.__getattribute__('maximize') not in ['auroc', 'f_score', 'precision', 'recall',
-                                                     'accuracy', 'fallout', 'miss']:
-            raise ValueError('The selected metric in `REPORT.MAXIMIZE` does not exist!')
-        # Check if the scores attribute is a correct one
-        if self.__getattribute__('scores') not in ['', 'auroc', 'f_score', 'precision', 'recall',
-                                                   'accuracy', 'fallout', 'miss', 'all']:
-            raise ValueError('The selected metric in `REPORT.SCORES` does not exist!')
-        # Check if the curves attribute is a correct one
-        if self.__getattribute__('curves') not in ['', 'roc', 'pr', 'all']:
+        if self.__getattribute__('task') == 'nc':
+            if self.__getattribute__('maximize') not in ['f1_micro', 'f1_macro', 'f1_weighted']:
+                raise ValueError('The selected metric in `REPORT.MAXIMIZE` does not exist!')
+            # Check if the scores attribute is a correct one
+            if self.__getattribute__('scores') not in ['', 'f1_micro', 'f1_macro', 'f1_weighted', 'all']:
+                raise ValueError('The selected metric in `REPORT.SCORES` does not exist!')
+        else:
+            if self.__getattribute__('maximize') not in ['auroc', 'f_score', 'precision', 'recall',
+                                                         'accuracy', 'fallout', 'miss']:
+                raise ValueError('The selected metric in `REPORT.MAXIMIZE` does not exist!')
+            # Check if the scores attribute is a correct one
+            if self.__getattribute__('scores') not in ['', 'auroc', 'f_score', 'precision', 'recall', 'accuracy',
+                                                       'fallout', 'miss', 'all']:
+                raise ValueError('The selected metric in `REPORT.SCORES` does not exist!')
+            # Check if the curves attribute is a correct one
+            if self.__getattribute__('curves') not in ['', 'roc', 'pr', 'all']:
                 raise ValueError('The value of `REPORT.CURVES` is incorrect!')
 
     def getlist(self, section, option, dtype):
@@ -255,7 +265,7 @@ class EvalSetup(object):
 
     @property
     def nc_node_fracs(self):
-        return self.getlist('GENERAL', 'nc_node_fracs', int)
+        return self.getlist('GENERAL', 'nc_node_fracs', float)
 
     @property
     def nr_edge_samp_frac(self):
@@ -276,6 +286,8 @@ class EvalSetup(object):
             return LogisticRegression(solver='liblinear')
         elif model == 'LogisticRegressionCV':
             return LogisticRegressionCV(Cs=10, cv=5, penalty='l2', scoring='roc_auc', solver='lbfgs', max_iter=100)
+        elif model == 'DecisionTreeClassifier':
+            return DecisionTreeClassifier()
         else:
             raise ValueError('LP model {} not implemented. Use `LogisticRegression` or `LogisticRegressionCV`'
                              .format(model))

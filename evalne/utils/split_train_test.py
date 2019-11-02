@@ -35,6 +35,11 @@ def _sanity_check(G):
     ----------
     G : graph
        A NetworkX graph
+
+    Raises
+    ------
+    ValueError
+        If the graph has more than one (weakly) connected component.
     """
     # Compute the number of connected components
     if G.is_directed():
@@ -279,6 +284,12 @@ def split_train_test(G, train_frac=0.51, st_alg='wilson'):
        The set of train edges
     test_E : set
        The set of test edges
+
+    Raises
+    ------
+    ValueError
+        If the train_frac parameter is not in range (0, 1].
+        If the input graph G has more than one (weakly) connected component.
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
@@ -352,6 +363,11 @@ def rand_split_train_test(G, train_frac=0.51):
         The set of train edges
     test_E : set
         The set of test edges
+
+    Raises
+    ------
+    ValueError
+        If the train_frac parameter is not in range (0, 1].
     """
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
@@ -417,6 +433,12 @@ def naive_split_train_test(G, train_frac=0.51):
        The set of train edges
     test_E : set
         The set of test edges
+
+    Raises
+    ------
+    ValueError
+        If the train_frac parameter is not in range (0, 1].
+        If the input graph G has more than one (weakly) connected component.
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
@@ -507,6 +529,12 @@ def generate_false_edges_owa(G, train_E, test_E, num_fe_train=None, num_fe_test=
        The set of false train edges
     test_false_E : set
        The set of false test edges
+
+    Raises
+    ------
+    ValueError
+        If the input graph G has more than one (weakly) connected component.
+        If more false edges than existing in the graph are required.
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
@@ -596,6 +624,12 @@ def generate_false_edges_cwa(G, train_E, test_E, num_fe_train=None, num_fe_test=
        The set of false train edges
     test_false_E : set
        The set of false test edges
+
+    Raises
+    ------
+    ValueError
+        If the input graph G has more than one (weakly) connected component.
+        If more false edges than existing in the graph are required.
     """
     # Sanity check to make sure the input is correct
     _sanity_check(G)
@@ -959,6 +993,12 @@ def quick_split(G, train_frac=0.51):
        Column array of train edges as pairs src, dst
     test_E : array
        Column array of test edges as pairs src, dst
+
+    Raises
+    ------
+    ValueError
+        If the train_frac parameter is not in range (0, 1].
+        If the input graph G has more than one (weakly) connected component.
     """
     _sanity_check(G)
     if train_frac <= 0.0 or train_frac > 1.0:
@@ -1020,8 +1060,13 @@ def quick_nonedges(G, train_frac=0.51, fe_ratio=1.0):
        Column array of train edges as pairs src, dst
     test_E : array
        Column array of test edges as pairs src, dst
+
+    Raises
+    ------
+    ValueError
+        If more false edges than existing in the graph are required.
     """
-    # fe_ration can be anu float or keyworkd 'prop'
+    # fe_ration can be any float or keyword 'prop'
     a = nx.adj_matrix(G)
     n = a.shape[0]
     density = a.nnz / n ** 2

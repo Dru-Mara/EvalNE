@@ -5,6 +5,7 @@
 # Date: 18/12/2018
 
 # TODO: Use true labels and the preds to give statistics of where the method fails.
+# TODO: Implement NC as link prediction for NE and e2e embedding methods.
 
 from __future__ import division
 
@@ -24,6 +25,7 @@ from evalne.evaluation import score
 from evalne.evaluation import split
 from evalne.methods import similarity as sim
 from evalne.utils import split_train_test as stt
+from evalne.utils import preprocess as pp
 from evalne.methods import katz
 
 
@@ -65,9 +67,30 @@ class LPEvaluator(object):
                                              owa=self.traintest_split.owa, fe_ratio=self.traintest_split.fe_ratio,
                                              split_id=self.traintest_split.split_id, verbose=False)
 
+    @staticmethod
+    def _log_best(best_results, best_params, results, params, maximize, tr_te='test'):
+        # Log the best results
+        for j in range(len(results)):
+            if best_results[j] is None:
+                best_results[j] = results[j]
+                best_params[j] = params
+            else:
+                if tr_te == 'train':
+                    func1 = getattr(results[j].train_scores, str(maximize))
+                    func2 = getattr(best_results[j].train_scores, str(maximize))
+                else:
+                    func1 = getattr(results[j].test_scores, str(maximize))
+                    func2 = getattr(best_results[j].test_scores, str(maximize))
+                if func1() > func2():
+                    best_results[j] = results[j]
+                    best_params[j] = params
+
+        return best_results, best_params
+
     def evaluate_baseline(self, method, neighbourhood='in'):
         """
-        Evaluates the baseline method requested. Evaluation output is returned as a Results object.
+        Evaluates the baseline method requested. Evaluation output is returned as a Results object. For Katz
+        neighbourhood=`in` and neighbourhood=`out` will return the same results corresponding to neighbourhood=`in`.
         Execution time is contain in the results object. If the train/test split object used to initialize the
         evaluator does not contain test edges, the results object will only contain train results.
 
@@ -122,6 +145,11 @@ class LPEvaluator(object):
         params = {'neighbourhood': neighbourhood, 'eval_time': end}
         self.edge_embed_method = None
 
+        if 'all_baselines' in method:
+            # This method returns edge embeddings so we need to compute the predictions
+            train_pred, test_pred = self.compute_pred(data_split=self.traintest_split, tr_edge_embeds=train_pred,
+                                                      te_edge_embeds=test_pred)
+
         # Compute the scores
         if nx.is_directed(self.traintest_split.TG):
             results = self.compute_results(data_split=self.traintest_split, method_name=method + '-' + neighbourhood,
@@ -143,7 +171,10 @@ class LPEvaluator(object):
         method_name : basestring
             A string indicating the name of the method to be evaluated.
         method_type : basestring
-            A string indicating the type of embedding method (i.e. ne, ee, e2e)
+            A string indicating the type of embedding method (i.e. ne, ee, e2e).
+            NE methods are expected to return embeddings, one per graph node, as either dict or matrix sorted by nodeID.
+            EE methods are expected to return edge embeddings as [num_edges x embed_dim] matrix in same order as input.
+            E2E methods are expected to return predictions as a vector in the same order as the input edgelist.
         command : basestring
             A string containing the call to the method as it would be written in the command line.
             For 'ne' methods placeholders (i.e. {}) need to be provided for the parameters: input network file,
@@ -182,8 +213,8 @@ class LPEvaluator(object):
 
         Returns
         -------
-        results : list of Results
-            Returns a list of Results objects, one per edge embedding method.
+        results : Results
+            Returns the evaluation results as a Results object.
 
         """
         # Measure execution time
@@ -210,7 +241,7 @@ class LPEvaluator(object):
             # Variable to store the best results and parameters for each ee_method
             best_results = list()
             best_params = list()
-            for i in range(len(edge_embedding_methods)):
+            for j in range(len(edge_embedding_methods)):
                 best_results.append(None)
                 best_params.append(None)
 
@@ -252,16 +283,7 @@ class LPEvaluator(object):
                         results = list(results)
 
                         # Log the best results
-                        for j in range(len(results)):
-                            if best_results[j] is None:
-                                best_results[j] = results[j]
-                                best_params[j] = param_str
-                            else:
-                                func1 = getattr(results[j].test_scores, str(maximize))
-                                func2 = getattr(best_results[j].test_scores, str(maximize))
-                                if func1() > func2():
-                                    best_results[j] = results[j]
-                                    best_params[j] = param_str
+                        best_results, best_params = self._log_best(best_results, best_params, results, param_str, maximize)
 
                     except ValueError:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
@@ -295,16 +317,7 @@ class LPEvaluator(object):
                         results = list(results)
 
                         # Log the best results
-                        for i in range(len(results)):
-                            if best_results[i] is None:
-                                best_results[i] = results[i]
-                                best_params[i] = param_str
-                            else:
-                                func1 = getattr(results[i].test_scores, str(maximize))
-                                func2 = getattr(best_results[i].test_scores, str(maximize))
-                                if func1() > func2():
-                                    best_results[i] = results[i]
-                                    best_params[i] = param_str
+                        best_results, best_params = self._log_best(best_results, best_params, results, param_str, maximize)
 
                     except ValueError:
                         logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
@@ -403,11 +416,11 @@ class LPEvaluator(object):
 
         # End of exec time measurement
         end = time.time() - start
-        for res in results:
-            res.params.update({'eval_time': end})
+        res = results[0]
+        res.params.update({'eval_time': end})
 
         # Return the evaluation results
-        return results
+        return res
 
     def _evaluate_ne_cmd(self, data_split, method_name, command, edge_embedding_methods, input_delim, output_delim,
                          write_weights, write_dir, verbose):
@@ -447,45 +460,8 @@ class LPEvaluator(object):
             if os.path.isfile('./emb.tmp.txt'):
                 tmpemb = './emb.tmp.txt'
 
-            # Autodetect header of output
-            # Read num lines in output
-            num_vectors = sum(1 for _ in open(tmpemb))
-            emb_skiprows = num_vectors - len(data_split.TG.nodes)
-
-            if emb_skiprows < 0:
-                raise ValueError('Method {} does not provide a unique embedding for every graph node!'
-                                 '\nExpected num. node embeddings: {} '
-                                 '\nObtained num. node embeddings: {}'
-                                 .format(method_name, len(data_split.TG.nodes), num_vectors))
-            elif emb_skiprows > 0:
-                logging.warning('Output of method {} contains {} more lines than expected. Will consider them part '
-                                'of the header and ignore them... Expected num_lines {}, obtained lines {}.'
-                                .format(method_name, emb_skiprows, len(data_split.TG.nodes), num_vectors))
-
-            # Read the embeddings
-            X = np.genfromtxt(tmpemb, delimiter=output_delim, dtype=float, skip_header=emb_skiprows, autostrip=True)
-
-            if X.ndim == 1:
-                raise ValueError('Error encountered while reading node embeddings for method {}. '
-                                 'Please check the output delimiter for the method, this value is probably incorrect.'
-                                 .format(method_name))
-
-            if X.shape[1] == self.dim:
-                # Assume embeddings given as matrix [X_0, X_1, ..., X_D] where rows correspond to sorted node id
-                keys = map(str, sorted(data_split.TG.nodes))
-                # keys = map(str, range(len(X)))
-                X = dict(zip(keys, X))
-            elif X.shape[1] == self.dim + 1:
-                logging.warning('Output provided by method {} contains {} columns, {} expected!'
-                                '\nAssuming first column to be the nodeID...'
-                                .format(method_name, X.shape[1], self.dim))
-                # Assume first col is node id and rest are embedding features [id, X_0, X_1, ..., X_D]
-                keys = map(str, np.array(X[:, 0], dtype=int))
-                X = dict(zip(keys, X[:, 1:]))
-            else:
-                raise ValueError('Incorrect node embedding dimensions for method {}!'
-                                 '\nValues expected: {} or {} \nValue received: {}'
-                                 .format(method_name, self.dim, self.dim + 1, X.shape[1]))
+            # Read embeddings from output file
+            X = pp.read_node_embeddings(tmpemb, data_split.TG.nodes, self.dim, output_delim, method_name)
 
             # Evaluate the model
             results = list()
@@ -540,7 +516,7 @@ class LPEvaluator(object):
             # Add input and output file paths and the embedding dimensionality to the command
             command = command.format(tmpedg, tmp_tr_e, tmp_te_e, tmp_tr_out, tmp_te_out, self.dim)
         else:
-            raise ValueError('Incorrect number of placeholders in {} command! Accepted values are 4 or 6.'
+            raise ValueError('Incorrect number of placeholders in `{}` command! Accepted values are 4 or 6.'
                              .format(method_name))
 
         # Write the train data to a file
@@ -577,105 +553,30 @@ class LPEvaluator(object):
                 subprocess.call(command, shell=True)
 
             if placeholders == 4:
-                # Autodetect and skip header if exists in prediction output.
-                num_tr_out = sum(1 for _ in open(tmp_tr_out))
-                skiprows = num_tr_out - (len(data_split.train_edges) + len(data_split.test_edges))
-
-                if skiprows < 0:
-                    raise ValueError('Method {} does not provide a unique embedding/prediction for every edge passed!'
-                                     '\nExpected num. embeddings/predictions: {} '
-                                     '\nObtained num. embeddings/predictions: {}'
-                                     .format(method_name, len(data_split.train_edges) + len(data_split.test_edges),
-                                             num_tr_out))
-                elif skiprows > 0:
-                    logging.warning('Found {} more lines in the output file than expected. Will consider these part '
-                                    'of the header and ignore them... Expected num_lines {}, obtained num lines {}.'
-                                    .format(skiprows, (len(data_split.train_edges) + len(data_split.test_edges)),
-                                            num_tr_out))
-
-                # Read the embeddings/predictions
-                out = np.genfromtxt(tmp_tr_out, delimiter=output_delim, dtype=float, skip_header=skiprows,
-                                    autostrip=True)
-
                 # Check if the method is ee or e2e
                 if method_type == 'ee':
-                    if out.ndim == 2 and out.shape[1] == self.dim:
-                        # Assume edge embeddings given as matrix [X_0, X_1, ..., X_D] in same order as edgelist
-                        tr_out = out[0:len(data_split.train_edges), :]
-                        te_out = out[len(data_split.train_edges):, :]
-                    else:
-                        raise ValueError('Incorrect edge embedding dimension for method {}!'
-                                         '\nOutput expected: ({},{}) \nOutput received: {}'
-                                         .format(method_name, len(data_split.train_edges) + len(data_split.test_edges),
-                                                 self.dim, out.shape))
+                    Y = pp.read_edge_embeddings(tmp_tr_out, (len(data_split.train_edges) + len(data_split.test_edges)),
+                                                self.dim, output_delim, method_name)
+                    tr_out = Y[0:len(data_split.train_edges), :]
+                    te_out = Y[len(data_split.train_edges):, :]
                 else:
-                    if out.ndim == 1:
-                        # If output is a vector of predictions, assume is in the same order as the edgelist provided.
-                        tr_out = out[0:len(data_split.train_edges)]
-                        te_out = out[len(data_split.train_edges):]
-                    else:
-                        # If output is a matrix, assume last column has predictions in the same order as the edgelist.
-                        logging.warning('Output provided by method {} is a matrix! '
-                                        '\nPredictions assumed to be in the last column...'.format(method_name))
-                        tr_out = out[0:len(data_split.train_edges), -1]
-                        te_out = out[len(data_split.train_edges):, -1]
+                    Y = pp.read_predictions(tmp_tr_out, (len(data_split.train_edges) + len(data_split.test_edges)),
+                                            output_delim, method_name)
+                    tr_out = Y[0:len(data_split.train_edges)]
+                    te_out = Y[len(data_split.train_edges):]
 
             else:
-                # Autodetect and skip header if exists in output.
-                num_tr_out = sum(1 for _ in open(tmp_tr_out))
-                num_te_out = sum(1 for _ in open(tmp_te_out))
-                tr_skiprows = num_tr_out - len(data_split.train_edges)
-                te_skiprows = num_te_out - len(data_split.test_edges) - dummy_edges
-
-                if tr_skiprows < 0 or te_skiprows < 0:
-                    raise ValueError('Method {} does not provide a unique prediction/embedding for every edge passed!'
-                                     '\nExpected num. train predictions/embeddings {}'
-                                     '\nObtained num. train predictions/embeddings {}'
-                                     '\nExpected num. test predictions/embeddings {}'
-                                     '\nObtained num. test predictions/embeddings {}'
-                                     .format(method_name, len(data_split.train_edges), num_tr_out,
-                                             len(data_split.test_edges)+dummy_edges, num_te_out))
-                elif tr_skiprows > 0:
-                    logging.warning('Found {} more lines in the train file than expected. Will consider these part '
-                                    'of the header and ignore them... Expected num_lines {}, obtained num lines {}.'
-                                    .format(tr_skiprows, len(data_split.train_edges), num_tr_out))
-                elif te_skiprows > 0:
-                    logging.warning('Found {} more lines in the test file than expected. Will consider these part '
-                                    'of the header and ignore them... Expected num_lines {}, obtained num lines {}.'
-                                    .format(te_skiprows, len(data_split.test_edges)+dummy_edges, num_te_out))
-
-                # Read the embeddings/predictions
-                tr_out = np.genfromtxt(tmp_tr_out, delimiter=output_delim, dtype=float, skip_header=tr_skiprows,
-                                       autostrip=True)
-                te_out = np.genfromtxt(tmp_te_out, delimiter=output_delim, dtype=float, skip_header=te_skiprows,
-                                       autostrip=True)
-
                 # Check if the method is ee or e2e
                 if method_type == 'ee':
-                    # By default assume edge embeddings given as matrix [X_0, X_1, ..., X_D] in same order as edgelist
-                    if tr_out.shape[0] != len(data_split.train_edges) or \
-                            te_out.shape[0] != len(data_split.test_edges) + dummy_edges or \
-                            tr_out.shape[1] != self.dim or te_out.shape[1] != self.dim:
-                        raise ValueError('Incorrect edge embedding dimension for method {}!'
-                                         '\nOutput expected train: ({},{}) \nOutput received train: {}'
-                                         '\nOutput expected test: ({},{}) \nOutput received test: {}'
-                                         .format(method_name, len(data_split.train_edges), self.dim, tr_out.shape,
-                                                 len(data_split.test_edges)+dummy_edges, self.dim, te_out.shape))
+                    tr_out = pp.read_edge_embeddings(tmp_tr_out, len(data_split.train_edges), self.dim, output_delim,
+                                                     method_name)
+                    te_out = pp.read_edge_embeddings(tmp_te_out, len(data_split.test_edges) + dummy_edges, self.dim,
+                                                     output_delim, method_name)
                 else:
-                    # By default we assume the output is a vector of predictions in the same order as the edgelist.
-                    # If output is a matrix, assume last column has predictions in the same order as the edgelist.
-                    if tr_out.ndim == 2:
-                        logging.warning('Output provided by method {} is a matrix!'
-                                        '\nPredictions assumed to be in the last column...'.format(method_name))
-                        tr_out = tr_out[:, -1]
-                        if len(data_split.test_edges) > 1:
-                            te_out = te_out[:, -1]
-
-                    if len(data_split.test_edges) == 1:
-                        if te_out.ndim == 1:
-                            te_out = [float(te_out[:, -1])]
-                        else:
-                            te_out = [float(te_out)]
+                    tr_out = pp.read_predictions(tmp_tr_out, len(data_split.train_edges), output_delim,
+                                                 method_name)
+                    te_out = pp.read_predictions(tmp_te_out, len(data_split.test_edges) + dummy_edges,
+                                                 output_delim, method_name)
 
             # If no test edges were required make te_out none
             if len(data_split.test_edges) == 0:
@@ -715,7 +616,7 @@ class LPEvaluator(object):
                     label_binarizer=LogisticRegression(solver='liblinear'), params=None):
         r"""
         Runs the complete pipeline, from node embeddings to edge embeddings and returns the prediction results.
-        If data_split.test_edges is None, the train results will be returned as both train and test in Results.
+        If data_split.test_edges is None, the Results object will only contain train Scores.
 
         Parameters
         ----------
@@ -872,7 +773,7 @@ class LPEvaluator(object):
         else:
             results = score.Results(method=method_name, params=parameters,
                                     train_pred=train_pred, train_labels=data_split.train_labels,
-                                    test_pred=train_pred, test_labels=data_split.train_labels,
+                                    test_pred=test_pred, test_labels=data_split.test_labels,
                                     label_binarizer=label_binarizer)
         return results
 
@@ -918,6 +819,9 @@ class NREvaluator(LPEvaluator):
             A string indicating the name of the method to be evaluated.
         method_type : basestring
             A string indicating the type of embedding method (i.e. ne, ee, e2e)
+            NE methods are expected to return embeddings, one per graph node, as either dict or matrix sorted by nodeID.
+            EE methods are expected to return edge embeddings as [num_edges x embed_dim] matrix in same order as input.
+            E2E methods are expected to return predictions as a vector in the same order as the input edgelist.
         command : basestring
             A string containing the call to the method as it would be written in the command line.
             For 'ne' methods placeholders (i.e. {}) need to be provided for the parameters: input network file,
@@ -956,8 +860,8 @@ class NREvaluator(LPEvaluator):
 
         Returns
         -------
-        results : list of Results
-            Returns a list of Results objects, one per edge embedding method.
+        results : Results
+            Returns the evaluation results as a Results object.
 
         """
         # Measure execution time
@@ -980,7 +884,7 @@ class NREvaluator(LPEvaluator):
             # Variable to store the best results and parameters for each ee_method
             best_results = list()
             best_params = list()
-            for i in range(len(edge_embedding_methods)):
+            for j in range(len(edge_embedding_methods)):
                 best_results.append(None)
                 best_params.append(None)
 
@@ -1022,17 +926,8 @@ class NREvaluator(LPEvaluator):
                         results = list(results)
 
                         # Log the best results
-                        for j in range(len(results)):
-                            if best_results[j] is None:
-                                best_results[j] = results[j]
-                                best_params[j] = param_str
-                            else:
-                                # For NR we look at the train score only!
-                                func1 = getattr(results[j].train_scores, str(maximize))
-                                func2 = getattr(best_results[j].train_scores, str(maximize))
-                                if func1() > func2():
-                                    best_results[j] = results[j]
-                                    best_params[j] = param_str
+                        best_results, best_params = self._log_best(best_results, best_params, results, param_str,
+                                                                   maximize, 'train')
 
                     except ValueError:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
@@ -1066,17 +961,8 @@ class NREvaluator(LPEvaluator):
                         results = list(results)
 
                         # Log the best results
-                        for i in range(len(results)):
-                            if best_results[i] is None:
-                                best_results[i] = results[i]
-                                best_params[i] = param_str
-                            else:
-                                # For NR we look at the train score only!
-                                func1 = getattr(results[i].train_scores, str(maximize))
-                                func2 = getattr(best_results[i].train_scores, str(maximize))
-                                if func1() > func2():
-                                    best_results[i] = results[i]
-                                    best_params[i] = param_str
+                        best_results, best_params = self._log_best(best_results, best_params, results, param_str,
+                                                                   maximize, 'train')
 
                     except ValueError:
                         logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
@@ -1135,99 +1021,112 @@ class NREvaluator(LPEvaluator):
 
         # End of exec time measurement
         end = time.time() - start
-        for res in results:
-            res.params.update({'eval_time': end})
+        res = results[0]
+        res.params.update({'eval_time': end})
 
         # Return the evaluation results
-        return results
+        return res
 
 
 class NCEvaluator(object):
     """
-    Class designed to simplify the evaluation of embedding methods for node classification tasks.
-    The train graphs is assumed to be the complete graph. Parameter tuning is performed on a validation graph.
+    Class that performs the evaluation of embedding methods for node classification tasks.
+    The input graphs is assumed to be the complete graph. Embedding hyper-parameters are tuned on the complete graph
+    using a train/valid node split of specified size.
 
     Parameters
     ----------
-    traintest_split : EvalSplit()
-        An object containing the train graph (in this case the full network) and a set of train true edges.
-        The sets of edges from the object will be ignored.
-    trainvalid_split : EvalSplit()
-        An object containing the validation graph and a set of train and valid true and false edges. If this object is
-        not privided, a validation split with the same parameters as the train/test one will be generated but with a
-        90/10 split.
+    G : nx.Graph
+        The full graph for which to run the evaluation.
+    labels : ndarray
+        A numpy array containing nodeIDs as first columns and labels as second column.
+    nw_name : basestring
+        A string indicating the name of the network. For result logging purposes.
+    num_shuffles : int
+        The number of experiment repeats or different train/test shuffles over which to average the end results.
+    traintest_fracs : array-like
+        The train and test fractions for which to return the results
+    trainvalid_frac : float
+        The train/valid spalit to use in kfold cross-validation for determining the best embedding hyper-parameters.
     dim : int
         Embedding dimensionality.
-    lp_model : Sklearn binary classifier.
-        The binary classifier to use for edge prediction.
+    nc_model : Sklearn binary classifier.
+        The binary classifier to use for node classification.
     """
 
-    def __init__(self, traintest_split, trainvalid_split=None, dim=128,
-                 lp_model=LogisticRegressionCV(Cs=10, cv=5, penalty='l2', scoring='roc_auc', solver='lbfgs',
-                                               max_iter=100)):
+    def __init__(self, G, labels, nw_name, num_shuffles, traintest_fracs, trainvalid_frac, dim=128,
+                 nc_model=None):
         # General evaluation parameters
-        self.traintest_split = traintest_split
-        self.trainvalid_split = self._init_trainvalid(trainvalid_split)
-        self._check_split()
+        self.G = G
+        self.labels = labels[np.argsort(labels[:, 0]), :]
+        self.nw_name = nw_name
+        self.traintest_fracs = traintest_fracs
+        self.trainvalid_frac = trainvalid_frac
+        self.shuffles = self._init_shuffles(num_shuffles)
         self.dim = dim
-        self.edge_embed_method = None
-        self.lp_model = lp_model
+        if nc_model is None:
+            self.nc_model = LogisticRegressionCV(Cs=10, cv=3, penalty='l2', multi_class='ovr')
+        else:
+            self.nc_model = nc_model
+        # Run some simple input checks
+        self._check_labels()
 
-    def _check_split(self):
-        if self.traintest_split.test_edges is not None:
-            raise ValueError('For node classification test edges need to be set to None!')
+    def _init_shuffles(self, num_shuffles):
+        shuffles = list()
+        for i in range(num_shuffles):
+            sh = range(len(self.labels))
+            np.random.shuffle(sh)
+            shuffles.append(sh)
+        return shuffles
 
-    def _init_trainvalid(self, tv):
-        if tv is None or tv.test_edges is None:
-            if tv.test_edges is None:
-                logging.error('Not all edge sets initialized in trainvalid_split. Recomputing correct split...')
-            tv = split.EvalSplit()
-            tv.compute_splits(self.traintest_split.TG, nw_name=self.traintest_split.nw_name, train_frac=0.9,
-                              split_alg=self.traintest_split.split_alg, owa=self.traintest_split.owa,
-                              fe_ratio=self.traintest_split.fe_ratio, split_id=self.traintest_split.split_id,
-                              verbose=False)
-        return tv
+    def _check_labels(self):
+        if len(set(self.labels[:, 0]) - set(self.G.nodes())) != 0:
+            raise ValueError('Mismatch between node labels and node IDs of G')
 
-    def evaluate_cmd(self, method_name, method_type, command, edge_embedding_methods, input_delim, output_delim,
-                     tune_params=None, maximize='auroc', write_weights=False, write_dir=False, verbose=True):
+    def _log_best(self, best_results, best_params, best_X, results, params, X, maximize, tr_te):
+
+        for i in range(len(self.shuffles)):
+            # Log the best results
+            if best_results[i] is None:
+                best_results[i] = results[i]
+                best_params[i] = params
+                best_X[i] = X
+            else:
+                if tr_te == 'train':
+                    func1 = getattr(results[i].train_scores, str(maximize))
+                    func2 = getattr(best_results[i].train_scores, str(maximize))
+                else:
+                    func1 = getattr(results[i].test_scores, str(maximize))
+                    func2 = getattr(best_results[i].test_scores, str(maximize))
+                if func1() > func2():
+                    best_results[i] = results[i]
+                    best_params[i] = params
+                    best_X[i] = X
+
+        return best_results, best_params, best_X
+
+    def evaluate_cmd(self, method_name, command, input_delim, output_delim, tune_params=None,
+                     maximize='f1_micro', write_weights=False, write_dir=False, verbose=True):
         r"""
         Evaluates an embedding method and tunes its parameters from the method's command line call string. This
-        function can evaluate node embedding, edge embedding or end to end embedding methods.
-        If model parameter tuning is required and train/valid split is provided this will be used. Otherwise
-        a new 90/10 train/valid split will be computed.
+        function can currently only evaluate node embedding methods for NC.
 
         Parameters
         ----------
         method_name : basestring
             A string indicating the name of the method to be evaluated.
-        method_type : basestring
-            A string indicating the type of embedding method (i.e. ne, ee, e2e)
         command : basestring
             A string containing the call to the method as it would be written in the command line.
             For 'ne' methods placeholders (i.e. {}) need to be provided for the parameters: input network file,
             output file and embedding dimensionality, precisely IN THIS ORDER.
-            For 'ee' methods with parameters: input network file, input train edgelist, input test edgelist, output
-            train embeddings, output test embeddings and embedding dimensionality, 6 placeholders (i.e. {}) need to
-            be provided, precisely IN THIS ORDER.
-            For methods with parameters: input network file, input edgelist, output embeddings, and embedding
-            dimensionality, 4 placeholders (i.e. {}) need to be provided, precisely IN THIS ORDER.
-            For 'e2e' methods with parameters: input network file, input train edgelist, input test edgelist, output
-            train predictions, output test predictions and embedding dimensionality, 6 placeholders (i.e. {}) need
-            to be provided, precisely IN THIS ORDER.
-            For methods with parameters: input network file, input edgelist, output predictions, and embedding
-            dimensionality, 4 placeholders (i.e. {}) need to be provided, precisely IN THIS ORDER.
-        edge_embedding_methods : array-like
-            A list of methods used to compute edge embeddings from the node embeddings output by the NE models.
-            The accepted values are the function names in evalne.evaluation.edge_embeddings.
-            When evaluating 'ee' or 'e2e' methods, this parameter is ignored.
         input_delim : basestring
             The delimiter expected by the method as input (edgelist).
         output_delim : basestring
             The delimiter provided by the method in the output
-        tune_params : basestring
-            A string containing all the parameters to be tuned and their values.
-        maximize : basestring
-            The score to maximize while performing parameter tuning.
+        tune_params : basestring, optional
+            A string containing all the parameters to be tuned and their values. Default is None.
+        maximize : basestring, optional
+            The score to maximize while performing parameter tuning. Default is 'f1_micro'.
         write_weights : bool, optional
             If True the train graph passed to the embedding methods will be stored as weighted edgelist
             (e.g. triplets src, dst, weight) otherwise as normal edgelist. If the graph edges have no weight attribute
@@ -1235,38 +1134,40 @@ class NCEvaluator(object):
         write_dir : bool, optional
             This option is only relevant for undirected graphs. If False, the train graph will be stored with a single
             direction of the edges. If True, both directions of edges will be stored. Default is False.
-        verbose : bool
-            A parameter to control the amount of screen output.
+        verbose : bool, optional
+            A parameter to control the amount of screen output. Default is True.
 
         Returns
         -------
-        results : list of Results
-            Returns a list of Results objects, one per edge embedding method.
+        results : list
+            Returns a list of Results objects one per each train/test fraction and each node shuffle.
 
         """
         # Measure execution time
         start = time.time()
 
-        # Check the method type and raise an error if necessary
-        if method_type not in ['ne', 'ee', 'e2e']:
-            raise ValueError('Method type `{}` of method `{}` is unknown! Valid options are: `ne`, `ee`, `e2e`'
-                             .format(method_type, method_name))
+        # Make sure the LRCV model maximizes what we want
+        self.nc_model.scoring = maximize
 
-        # If the method evaluated does not require edge embeddings set this parameter to ['none']
-        if method_type != 'ne':
-            edge_embedding_methods = ['none']
-            self.edge_embed_method = None
+        # Check the method type and raise an error if necessary
+        # if method_type != 'ne':
+        #    raise ValueError('Node classification not supported for method type `{}`.'.format(method_type))
+        # if method_type in ['ee', 'e2e']:
+        #     1) consider each node label as a new graph node with ID: len(TG.nodes())+np.unique(self.labels))
+        #     2) add edges to the set of train edges between nodes and their `label_nodes`
+        #     train_edges = np.vstack(self.traintest_split.train_edges,
+        #                             np.array([labels[:,0], labels[:,1]+len(TG.nodes())]).T)
+        #     3) Train with this data and predict only edges between nodes to `label_nodes`
 
         # Check if tuning parameters is needed
         if tune_params is not None:
             print('Tuning parameters for {} ...'.format(method_name))
 
             # Variable to store the best results and parameters for each ee_method
-            best_results = list()
-            best_params = list()
-            for i in range(len(edge_embedding_methods)):
-                best_results.append(None)
-                best_params.append(None)
+            num_sh = len(self.shuffles)
+            best_results = [None] * num_sh
+            best_params = [None] * num_sh
+            best_X = [None] * num_sh
 
             # Prepare the parameters
             sep = re.compile(r"--\w+")
@@ -1294,36 +1195,21 @@ class NCEvaluator(object):
                     ext_command = command + param_str
 
                     try:
-                        # Call the corresponding evaluation method
-                        if method_type == 'ee' or method_type == 'e2e':
-                            results = self._evaluate_ee_e2e_cmd(self.trainvalid_split, method_name, method_type,
-                                                                ext_command, input_delim, output_delim, write_weights,
-                                                                write_dir, verbose)
-                        else:
-                            results = self._evaluate_ne_cmd(self.trainvalid_split, method_name, ext_command,
-                                                            edge_embedding_methods, input_delim, output_delim,
-                                                            write_weights, write_dir, verbose)
-                        results = list(results)
+                        X = self._compute_emb_cmd(method_name, ext_command, input_delim, output_delim,
+                                                  write_weights, write_dir, verbose)
 
-                        # Log the best results
-                        for j in range(len(results)):
-                            if best_results[j] is None:
-                                best_results[j] = results[j]
-                                best_params[j] = param_str
-                            else:
-                                func1 = getattr(results[j].test_scores, str(maximize))
-                                func2 = getattr(best_results[j].test_scores, str(maximize))
-                                if func1() > func2():
-                                    best_results[j] = results[j]
-                                    best_params[j] = param_str
+                        # Compute results for all shuffles
+                        results = self._evaluate_ne(X, method_name, [self.trainvalid_frac], self.shuffles,
+                                                    train_only=True)
 
-                    except ValueError:
-                        logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.trainvalid_split.nw_name))
+                        # Log the best results per shuffle
+                        best_results, best_params, best_X = self._log_best(best_results, best_params, best_X,
+                                                                           results, param_str, X, maximize, 'train')
 
-                    except IOError:
-                        logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.trainvalid_split.nw_name))
+                    except (ValueError, IOError) as e:
+                        logging.exception('Exception occurred while evaluating param `{}` for method `{}`.'
+                                          .format(param_str, method_name))
+
             else:
                 # All parameter combinations
                 combinations = list(itertools.product(*params))
@@ -1337,123 +1223,42 @@ class NCEvaluator(object):
                     ext_command = command + param_str
 
                     try:
-                        # Call the corresponding evaluation method
-                        if method_type == 'ee' or method_type == 'e2e':
-                            results = self._evaluate_ee_e2e_cmd(self.trainvalid_split, method_name, method_type,
-                                                                ext_command, input_delim, output_delim, write_weights,
-                                                                write_dir, verbose)
-                        else:
-                            results = self._evaluate_ne_cmd(self.trainvalid_split, method_name, ext_command,
-                                                            edge_embedding_methods, input_delim, output_delim,
-                                                            write_weights, write_dir, verbose)
-                        results = list(results)
+                        X = self._compute_emb_cmd(method_name, ext_command, input_delim, output_delim,
+                                                  write_weights, write_dir, verbose)
 
-                        # Log the best results
-                        for i in range(len(results)):
-                            if best_results[i] is None:
-                                best_results[i] = results[i]
-                                best_params[i] = param_str
-                            else:
-                                func1 = getattr(results[i].test_scores, str(maximize))
-                                func2 = getattr(best_results[i].test_scores, str(maximize))
-                                if func1() > func2():
-                                    best_results[i] = results[i]
-                                    best_params[i] = param_str
+                        # Compute results for all shuffles
+                        results = self._evaluate_ne(X, method_name, [self.trainvalid_frac], self.shuffles,
+                                                    train_only=True)
 
-                    except ValueError:
-                        logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.trainvalid_split.nw_name))
+                        # Log the best results per shuffle
+                        best_results, best_params, best_X = self._log_best(best_results, best_params, best_X,
+                                                                           results, param_str, X, maximize, 'train')
 
-                    except IOError:
-                        logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
-                                          .format(param_str, method_name, self.trainvalid_split.nw_name))
+                    except (ValueError, IOError) as e:
+                        logging.exception('Exception occurred while evaluating param `{}` for method `{}`.'
+                                          .format(param_str, method_name))
 
-            # We found best params for each ee method, log that info and corresponding score
-            ee_scores = list()
-            for i in range(len(edge_embedding_methods)):
-                if best_results[i] is not None:
-                    func = getattr(best_results[i].test_scores, str(maximize))
-                    bestscore = func()
+            results = list()
+            # We found best params log that info and corresponding score
+            for j in range(len(best_results)):
+                if best_results[j] is None:
+                    logging.error('NC shuffle {}: All param combinations for `{}` have failed! No results available.'
+                                  .format(j, method_name))
                 else:
-                    bestscore = 0.0
-                ee_scores.append(bestscore)
-                logging.info('Validation score for method `{}_{}` is: {}, corresponding best params were: `{}`'
-                             .format(method_name, edge_embedding_methods[i], bestscore, best_params[i]))
-
-            # We now select the ee that performs best in terms of maximize score
-            best_ee_idx = np.argmax(ee_scores)
-            if ee_scores[best_ee_idx] == 0.0:
-                raise ValueError('All parameter combinations for method `{}` have failed! No results available.'
-                                 .format(method_name))
-            ext_command = command + best_params[best_ee_idx]
-
-            # Call the corresponding evaluation method on the whole train data for the selected ee method
-            if method_type == 'ee' or method_type == 'e2e':
-                results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type, ext_command,
-                                                    input_delim, output_delim, write_weights, write_dir, verbose)
-            else:
-                results = self._evaluate_ne_cmd(self.traintest_split, method_name, ext_command,
-                                                [edge_embedding_methods[best_ee_idx]], input_delim, output_delim,
-                                                write_weights, write_dir, verbose)
-
-            # # We found best params for each ee method, now train model on whole train data to get actual results
-            # results = list()
-            # # For most ee method the best params will be the same, so we compute ne for distinct best params only
-            # d = defaultdict(list)
-            # for k, v in zip(best_params, edge_embedding_methods):
-            #     d[k].append(v)
-            # # If for any ee best params is none then all parameter combos failed for that ee method and we raise error
-            # if None in d.keys():
-            #     raise ValueError('All parameter combinations for method `{}` have failed! No results available.'
-            #                      .format(method_name))
-            # else:
-            #     for params, ee_methods in d.items():
-            #         ext_command = command + params
-            #         logging.info('Best params for method `{}` using ee `{}` are `{}`'
-            #                      .format(method_name, ee_methods, params))
-            #         # Call the corresponding evaluation method
-            #         if method_type == 'ee' or method_type == 'e2e':
-            #             results.extend(self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type,
-            #                                                     ext_command, input_delim, output_delim, write_weights,
-            #                                                      write_dir, verbose))
-            #         else:
-            #           results.extend(self._evaluate_ne_cmd(self.traintest_split, method_name, ext_command, ee_methods,
-            #                                                  input_delim, output_delim, write_weights, write_dir,
-            #                                                  verbose))
+                    # We report as validation scores the best results on the tr/valid split
+                    bestscore = getattr(best_results[j].train_scores, str(maximize))
+                    logging.info('NC shuffle {}: Validation score for `{}` is: {}, corresponding best params were: `{}`'
+                                 .format(j, method_name, bestscore(), best_params[j]))
+                    # Compute the best results for each shuffle using the best embeddings of full train/test split
+                    results.extend(self._evaluate_ne(best_X[j], method_name, self.traintest_fracs, [self.shuffles[j]]))
 
         else:
             # No parameter tuning is needed
-            # Call the corresponding evaluation method
-            if method_type == 'ee' or method_type == 'e2e':
-                results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type, command,
-                                                    input_delim, output_delim, write_weights, write_dir, verbose)
-            else:
-                # We still have to tune the edge embedding method
-                if len(edge_embedding_methods) > 1:
-                    # For NE methods first compute the results on validation data
-                    valid_results = self._evaluate_ne_cmd(self.trainvalid_split, method_name, command,
-                                                          edge_embedding_methods, input_delim, output_delim,
-                                                          write_weights, write_dir, verbose=False)
+            # Compute the results on the full train split
+            X = self._compute_emb_cmd(method_name, command, input_delim, output_delim,
+                                      write_weights, write_dir, verbose)
 
-                    # Extract and log the validation scores
-                    ee_scores = list()
-                    for i in range(len(valid_results)):
-                        func = getattr(valid_results[i].test_scores, str(maximize))
-                        bestscore = func()
-                        ee_scores.append(bestscore)
-                        logging.info('Validation score for method `{}_{}` is: {}, no other tuned params.'
-                                     .format(method_name, edge_embedding_methods[i], bestscore))
-
-                    # We now select the ee that performs best in terms of maximize score
-                    best_ee_idx = np.argmax(ee_scores)
-                else:
-                    # If we only have one ee method then that the one we compute results for, no need for validation
-                    best_ee_idx = 0
-
-                # Compute the results on the full train split
-                results = self._evaluate_ne_cmd(self.traintest_split, method_name, command,
-                                                [edge_embedding_methods[best_ee_idx]], input_delim, output_delim,
-                                                write_weights, write_dir, verbose)
+            results = self.evaluate_ne(X, method_name)
 
         # End of exec time measurement
         end = time.time() - start
@@ -1463,25 +1268,25 @@ class NCEvaluator(object):
         # Return the evaluation results
         return results
 
-    def _evaluate_ne_cmd(self, data_split, method_name, command, edge_embedding_methods, input_delim, output_delim,
-                         write_weights, write_dir, verbose):
+    def _compute_emb_cmd(self, method_name, command, input_delim, output_delim, write_weights,
+                         write_dir, verbose):
         """
-        The actual implementation of the node embedding evaluation. Stores the train graph as an edgelist to a
-        temporal file and provides it as input to the method evaluated. Performs the command line call and reads
-        the output. Node embeddings are transformed to edge embeddings and predictions are run.
+        Method that performs the cmd call and reads the embeddings. Stores the train graph as an edgelist to a temporal
+        file and provides it as input to the method evaluated. Performs the command line call and reads the output.
 
         Returns
         -------
-        results : list
-            A list of results, one for each edge embedding method set.
+        X : dict
+            A dictionary where keys are nodes in the graph and values are the node embeddings.
+            The keys are of type str and the values of type array.
         """
         # Create temporal files with in/out data for method
         tmpedg = './edgelist.tmp'
         tmpemb = './emb.tmp'
 
-        # Write the train data to a file
-        data_split.save_tr_graph(tmpedg, delimiter=input_delim, write_stats=False,
-                                 write_weights=write_weights, write_dir=write_dir)
+        # Write the graph to a file
+        pp.save_graph(self.G, output_path=tmpedg, delimiter=input_delim, write_stats=False,
+                      write_weights=write_weights, write_dir=write_dir)
 
         # Add the input, output and embedding dimensionality to the command
         command = command.format(tmpedg, tmpemb, self.dim)
@@ -1501,51 +1306,11 @@ class NCEvaluator(object):
             if os.path.isfile('./emb.tmp.txt'):
                 tmpemb = './emb.tmp.txt'
 
-            # Autodetect header of output
-            # Read num lines in output
-            num_vectors = sum(1 for _ in open(tmpemb))
-            emb_skiprows = num_vectors - len(data_split.TG.nodes)
-
-            if emb_skiprows < 0:
-                raise ValueError('Method {} does not provide a unique embedding for every graph node!'
-                                 '\nExpected num. node embeddings: {} '
-                                 '\nObtained num. node embeddings: {}'
-                                 .format(method_name, len(data_split.TG.nodes), num_vectors))
-            elif emb_skiprows > 0:
-                logging.warning('Output of method {} contains {} more lines than expected. Will consider them part '
-                                'of the header and ignore them... Expected num_lines {}, obtained lines {}.'
-                                .format(method_name, emb_skiprows, len(data_split.TG.nodes), num_vectors))
-
-            # Read the embeddings
-            X = np.genfromtxt(tmpemb, delimiter=output_delim, dtype=float, skip_header=emb_skiprows, autostrip=True)
-
-            if X.ndim == 1:
-                raise ValueError('Error encountered while reading node embeddings for method {}. '
-                                 'Please check the output delimiter for the method, this value is probably incorrect.'
-                                 .format(method_name))
-
-            if X.shape[1] == self.dim:
-                # Assume embeddings given as matrix [X_0, X_1, ..., X_D] where rows correspond to sorted node id
-                keys = map(str, sorted(data_split.TG.nodes))
-                # keys = map(str, range(len(X)))
-                X = dict(zip(keys, X))
-            elif X.shape[1] == self.dim + 1:
-                logging.warning('Output provided by method {} contains {} columns, {} expected!'
-                                '\nAssuming first column to be the nodeID...'
-                                .format(method_name, X.shape[1], self.dim))
-                # Assume first col is node id and rest are embedding features [id, X_0, X_1, ..., X_D]
-                keys = map(str, np.array(X[:, 0], dtype=int))
-                X = dict(zip(keys, X[:, 1:]))
-            else:
-                raise ValueError('Incorrect node embedding dimensions for method {}!'
-                                 '\nValues expected: {} or {} \nValue received: {}'
-                                 .format(method_name, self.dim, self.dim + 1, X.shape[1]))
+            # Read embeddings from output file
+            X = pp.read_node_embeddings(tmpemb, list(self.G.nodes()), self.dim, output_delim, method_name)
 
             # Evaluate the model
-            results = list()
-            for ee in edge_embedding_methods:
-                results.append(self.evaluate_ne(data_split=data_split, X=X, method=method_name, edge_embed_method=ee))
-            return results
+            return X
 
         except IOError:
             raise IOError('Execution of method `{}` did not generate node embeddings file. \nPossible reasons: '
@@ -1560,3 +1325,136 @@ class NCEvaluator(object):
                 os.remove(tmpemb)
             if os.path.isfile('./emb.tmp.txt'):
                 os.remove('./emb.tmp.txt')
+
+    def evaluate_ne(self, X, method_name, params=None):
+        r"""
+        Runs the NC evaluation pipeline. For each 'node_frac' trains a nc_model and uses it to compute predictions
+        which are then returned as a results object.
+        If data_split.test_edges is None, the Results object will only contain train Scores.
+
+        Parameters
+        ----------
+        X : dict
+            A dictionary where keys are nodes in the graph and values are the node embeddings.
+            The keys are of type str and the values of type array.
+        method_name : basestring
+            A string indicating the name of the method to be evaluated.
+        params : dict
+            A dictionary of parameters : values to be added to the results class.
+
+        Returns
+        -------
+        results : list
+            Returns a list of Results objects one per each train/test fraction and each node shuffle.
+        """
+        return self._evaluate_ne(X, method_name, self.traintest_fracs, self.shuffles, params)
+
+    def _evaluate_ne(self, X, method_name, node_fracs, shuffles, params=None, train_only=False):
+        """
+        Perform the actual NC evaluation.
+        """
+
+        # Initialize node frac if needed
+        if node_fracs is None:
+            node_fracs = [0.5]
+
+        # Get the embeddings and sort them
+        keys = map(int, X.keys())
+        X = np.array(X.values())
+        X = X[np.argsort(keys), :]
+
+        results = list()
+        for frac in node_fracs:
+            for sh in shuffles:
+                # Compute the train size
+                train_size = int(len(sh) * frac)
+
+                # Compute train data
+                X_train = X[sh[:train_size], :]
+                y_train = self.labels[sh[:train_size], 1]
+
+                # Compute test data
+                X_test = None
+                y_test = None
+                if not train_only:
+                    X_test = X[sh[train_size:], :]
+                    y_test = self.labels[sh[train_size:], 1]
+
+                # Compute predictions
+                train_pred, test_pred = self.compute_pred(X_train, y_train, X_test)
+
+                # Compute results
+                results.append(self.compute_results(method_name=method_name+'_'+str(frac), train_pred=train_pred,
+                                                    train_labels=y_train, test_pred=test_pred, test_labels=y_test,
+                                                    params=params))
+        # Return the results
+        return results
+
+    def compute_pred(self, X_train, y_train, X_test=None):
+        r"""
+        Computes predictions from the given embeddings.
+        Trains a NC model with the train edge embeddings and performs predictions for train and test embeddings.
+        If te_edge_embeds is None test_pred will be None.
+
+        Parameters
+        ----------
+        X_train : numpy array
+            An array containing the train embeddings
+        y_train : numpy array
+            An array containing the train labels.
+        X_test : numpy array, optional
+            An array containing the test embeddings.
+
+        Returns
+        -------
+        train_pred : array
+            The label predictions for the train data.
+        test_pred : array
+            The label predictions for the test data. Returns None if X_test is None.
+        """
+        # Fit the NC model
+        self.nc_model.fit(X_train, y_train)
+
+        # Predict
+        train_pred = self.nc_model.predict(X_train)
+        test_pred = None
+        if X_test is not None:
+            test_pred = self.nc_model.predict(X_test)
+
+        # Return the predictions
+        return train_pred, test_pred
+
+    def compute_results(self, method_name, train_pred, train_labels, test_pred=None, test_labels=None, params=None):
+        r"""
+        Generates results from the given predictions and returns them. If test_pred is not provided, the Results
+        object will only contain the train scores.
+
+        Parameters
+        ----------
+        method_name : basestring
+            A string indicating the name of the method for which the results will be created.
+        train_pred :
+            The link predictions for the train data.
+        test_pred : array_like, optional
+            The link predictions for the test data. Default is None.
+        params : dict, optional
+            A dictionary of parameters : values to be added to the results class.
+            Default is None.
+
+        Returns
+        -------
+        results : Results
+            Returns the evaluation results.
+        """
+        # Get global parameters
+        parameters = {'dim': self.dim, 'nw_name': self.nw_name}
+
+        # Obtain the evaluation parameters
+        if params is not None:
+            parameters.update(params)
+
+        results = score.NCResults(method=method_name, params=parameters,
+                                  train_pred=train_pred, train_labels=train_labels,
+                                  test_pred=test_pred, test_labels=test_labels)
+        # Return the results
+        return results

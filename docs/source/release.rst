@@ -1,6 +1,39 @@
 Release Log
 ===========
 
+EvalNE v0.3.1
+-------------
+
+Release date: 2 Nov 2019
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update
+- Various docstring improvements
+
+New features
+~~~~~~~~~~~~
+- New heuristic for LP named `all_baselines`. Generates a 5-dim edge embedding by combining the existing heuristics [CN, JC, AA, PA, RAI].
+- Automated file headder detection (in the output of embedding methods) is now a function
+- Functions for reading the embeddings, predictions and node labels have been added
+ 
+
+Miscelaneous
+~~~~~~~~~~~~
+- General improvements in NC task
+- Added NCScores and NCResults classes
+- Pickle file containig evaluation results is now saved incrementally, after each networks has been evaluated. If the user stops the process mid-way the results up to the last network will be available 
+- Coefficients of the binary classifier per evaluated method are now provided for LP and NR tasks
+- Improved exception management
+- Improved conf file sanity checks
+- Evaluated methods now return a single Results object instead of a list 
+
+Bugs
+~~~~
+- Fixed bug related to plotting PR and AUC curves
+- Fixed node classification bugs preventing the evaluaition to run properly
+
+
 EvalNE v0.3.0
 -------------
 

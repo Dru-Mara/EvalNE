@@ -11,7 +11,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-
+import logging
 import networkx as nx
 import numpy as np
 
@@ -26,7 +26,7 @@ def load_graph(input_path, delimiter=',', comments='#', directed=False):
     input_path : file or string
        File or filename to read.
     delimiter : string, optional
-       The string used to separate values. Default is comma.
+       The string used to separate values. Default is ','.
     comments : string, optional
        The character used to indicate the start of a comment. Default is '#'.
     directed : bool
@@ -59,7 +59,66 @@ def load_graph(input_path, delimiter=',', comments='#', directed=False):
     return G
 
 
-def infer_header(input_path, expected_lines):
+def read_labels(input_path, delimiter=',', comments='#', idx_mapping=None):
+    """
+    Reads node labels from a file and returns them as an array [nodeID, attr]. If idx_mapping is provided, the
+    original indices are re-mapped to new indices.
+
+    Parameters
+    ----------
+    input_path : file or string
+        File or filename to read. File is assumed to contain in each line a nodeID, label pair.
+    delimiter : string, optional
+        The string used to separate values. Default is ','.
+    comments : string, optional
+        The character used to indicate the start of a comment. Default is '#'.
+    idx_mapping : list of tuples
+        A list of (OldNodeID, NewNodeID).
+
+    Returns
+    -------
+    labels : ndarray
+        A numpy array containing nodeIDs as first column and labels as second column.
+    """
+    # Read the labes form a file
+    labels = np.loadtxt(input_path, delimiter=delimiter, comments=comments, dtype=float)
+
+    # Remap them if necessary
+    if idx_mapping is not None:
+        res = list()
+        # Make labels a dict
+        lab_d = dict(labels)
+        for (oldnid, newnid) in idx_mapping:
+            res.append((newnid, lab_d.get(oldnid)))
+        return np.array(res)
+    else:
+        return labels[labels[:, 0]]
+
+
+def infer_header(input_path, expected_lines, method_name=None):
+    """
+    Method that infers the header of a given file from the number of lines vs expected lines.
+
+    Parameters
+    ----------
+    input_path : file or string
+        File or filename to read.
+    expected_lines : int
+        Number of expected lines in the input file.
+    method_name : basestring, optional
+        A string indicating the name of the method being evaluated. If provided will be used when logging an error.
+        Default is None.
+
+    Returns
+    -------
+    header_len : int
+        The length of the header.
+
+    Raises
+    ------
+    ValueError
+        If not enough lines in input file.
+    """
     # Autodetect header of input as (num_lines_in_input - expected_lines)
     num_lines = sum(1 for _ in open(input_path))
     header_len = num_lines - expected_lines
@@ -67,63 +126,205 @@ def infer_header(input_path, expected_lines):
     if header_len < 0:
         raise ValueError('Exception, not enough lines in input file! Expected {} lines, obtained {}.'
                          .format(expected_lines, num_lines))
+    elif header_len > 0:
+        if method_name is not None:
+            logging.warning('Output of method `{}` contains {} more lines than expected. Will consider them part '
+                            'of the header and ignore them... Expected num_lines {}, obtained lines {}.'
+                            .format(method_name, header_len, expected_lines, num_lines))
+        else:
+            logging.warning('Output contains {} more lines than expected. Will consider them part '
+                            'of the header and ignore them... Expected num_lines {}, obtained lines {}.'
+                            .format(header_len, expected_lines, num_lines))
+
     return header_len
 
 
-def read_embeddings(input_path, nodes, embed_dim, delimiter=','):
+def read_node_embeddings(input_path, nodes, embed_dim, delimiter=',', method_name=None):
     r"""
-    Method that reads a file containing node or edge embeddings, and returns the results as dictionary of:
-    {ID, embed_vect}. The file header is inferred base on the expected number of embeddings.
+    Method that reads a file containing node embeddings, and returns the results as dictionary of:
+    {nodeID, embed_vect}. The file header is inferred base on the expected number of embeddings.
 
     Parameters
     ----------
     input_path : file or string
-       File or filename to read.
+        File or filename to read.
+    nodes : array_like
+        An array of network nodes for which the embeddings are expected.
+    embed_dim : int
+        The expected dimensionality of the node embeddings.
     delimiter : string, optional
-       The string used to separate values. Default is comma.
-    comments : string, optional
-       The character used to indicate the start of a comment. Default is '#'.
-    directed : bool
-       Indicated if the graph is directed or undirected.
+        The string used to separate values in the input file. Default is ','.
+    method_name : basestring, optional
+        A string indicating the name of the method being evaluated. If provided will be used when logging an error.
+        Default is None.
 
     Returns
     -------
-    G : graph
-       A NetworkX graph
+    X : dict
+       A dictionary of {`nodeID`, embed_vect}.
+
+    Raises
+    ------
+    ValueError
+        If not enough lines in input file.
+        If dimensions of the output matrix are not the expected ones.
     """
-    emb_skiprows = infer_header(input_path, len(nodes))
+    # Check how many rows are in the header
+    if method_name is not None:
+        emb_skiprows = infer_header(input_path, len(nodes), method_name)
+    else:
+        emb_skiprows = infer_header(input_path, len(nodes))
 
     # Read the embeddings
     X = np.genfromtxt(input_path, delimiter=delimiter, dtype=float, skip_header=emb_skiprows, autostrip=True)
 
+    # If output is just a vector rise error
     if X.ndim == 1:
-        raise ValueError('Error encountered while reading node embeddings. Check output delimiter of evaluated method.')
+        raise ValueError('Error encountered while reading node embeddings. Check output delimiter of the method.')
 
+    # If output is a matrix check its dimensions
     if X.shape[1] == embed_dim:
         # Assume embeddings given as matrix [X_0, X_1, ..., X_D] where rows correspond to sorted node id
         keys = map(str, sorted(nodes))
         X = dict(zip(keys, X))
     elif X.shape[1] == embed_dim + 1:
         # Assume first col is node id and rest are embedding features [id, X_0, X_1, ..., X_D]
+        if method_name is not None:
+            logging.warning('Output provided by method `{}` contains {} columns, {} expected! '
+                            'Taking first column as nodeID...'.format(method_name, X.shape[1], embed_dim))
+        else:
+            logging.warning('Output of evaluated method contains {} columns, {} expected! '
+                            'Taking first column as nodeID...'.format(X.shape[1], embed_dim))
         keys = map(str, np.array(X[:, 0], dtype=int))
         X = dict(zip(keys, X[:, 1:]))
     else:
-        raise ValueError('Incorrect embedding dimension for evaluated method! Expected: {} or {} Received: {}'
+        raise ValueError('Incorrect embedding dimension for the evaluated method! Expected: {} or {} Received: {}'
                          .format(embed_dim, embed_dim + 1, X.shape[1]))
+
     return X
 
 
-def read_predictions(input_path, num_pred, delimiter=','):
-    emb_skiprows = infer_header(input_path, num_pred)
+def read_edge_embeddings(input_path, ebunch_len, embed_dim, delimiter=',', method_name=None):
+    r"""
+    Method that reads a file containing edge embeddings, and returns the results as a matrix.
+    The file header is inferred base on the expected number of embeddings.
+
+    Parameters
+    ----------
+    input_path : file or string
+        File or filename to read.
+    ebunch_len : int
+        The number of edge embeddings expected.
+    embed_dim : int
+        The expected dimensionality of the edge embeddings.
+    delimiter : string, optional
+        The string used to separate values in the input file. Default is ','.
+    method_name : basestring, optional
+        A string indicating the name of the method being evaluated. If provided will be used when logging an error.
+        Default is None.
+
+    Returns
+    -------
+    Y : ndarray
+       A two dimensional numpy array containing edge embeddings as rows.
+
+    Raises
+    ------
+    ValueError
+        If not enough lines in input file.
+        If dimensions of the output matrix are not the expected ones.
+    """
+    # Check how many rows are in the header
+    if method_name is not None:
+        emb_skiprows = infer_header(input_path, ebunch_len, method_name)
+    else:
+        emb_skiprows = infer_header(input_path, ebunch_len)
 
     # Read the embeddings
-    X = np.genfromtxt(input_path, delimiter=delimiter, dtype=float, skip_header=emb_skiprows, autostrip=True)
+    Y = np.genfromtxt(input_path, delimiter=delimiter, dtype=float, skip_header=emb_skiprows, autostrip=True)
 
-    if X.ndim != 1:
-        # If output is a matrix, assume last column has predictions in the same order as the edgelist.
-        X = X[:, -1]
+    # Check embedding dimensions
+    if Y.ndim == 1 and len(Y) != embed_dim or Y.ndim == 2 and Y.shape[1] != embed_dim:
+        raise ValueError('Incorrect edge embedding dimension for method {}! Expected dims: ({},{}), Received dims: {}'
+                         .format(method_name, ebunch_len, embed_dim, Y.shape))
 
-    return X
+    return Y
+
+
+def read_predictions(input_path, ebunch_len, delimiter=',', method_name=None):
+    r"""
+    Method that reads a file containing link predictions, and returns the results as a vector.
+    The file header is inferred base on the expected number of embeddings.
+
+    Parameters
+    ----------
+    input_path : file or string
+        File or filename to read.
+    ebunch_len : int
+        The number of predictions expected.
+    delimiter : string, optional
+        The string used to separate values in the input file. Default is ','.
+    method_name : basestring, optional
+        A string indicating the name of the method being evaluated. If provided will be used when logging an error.
+        Default is None.
+
+    Returns
+    -------
+    Y : ndarray
+       A one dimensional numpy array containing the predictions for each node pair.
+
+    Raises
+    ------
+    ValueError
+        If not enough lines in input file.
+        If dimensions of the output is not the expected one.
+    """
+    # Predictions could be returned as col or row vectors
+    try:
+        # Check how many rows are in the header
+        if method_name is not None:
+            emb_skiprows = infer_header(input_path, ebunch_len, method_name)
+        else:
+            emb_skiprows = infer_header(input_path, ebunch_len)
+    except ValueError:
+        # Predictions could have been returned as a single vector
+        if method_name is not None:
+            emb_skiprows = infer_header(input_path, 1, method_name)
+        else:
+            emb_skiprows = infer_header(input_path, 1)
+
+    # Read the embeddings
+    Y = np.genfromtxt(input_path, delimiter=delimiter, dtype=float, skip_header=emb_skiprows, autostrip=True)
+
+    # Check embedding dimensions
+    if Y.ndim == 0:
+        if ebunch_len == 1:
+            Y = [Y.item()]
+        else:
+            if method_name is not None:
+                raise ValueError('Incorrect number of predictions for method `{}`! Expected: {}, Received: {}'
+                                 .format(method_name, ebunch_len, 1))
+            else:
+                raise ValueError('Incorrect number of predictions for evaluated method! Expected: {}, Received: {}'
+                                 .format(method_name, ebunch_len, 1))
+
+    if Y.ndim == 1 and len(Y) != ebunch_len or Y.ndim == 2 and Y.shape[0] != ebunch_len:
+        if method_name is not None:
+            raise ValueError('Incorrect number of predictions for method `{}`! Expected: {}, Received: {}'
+                             .format(method_name, ebunch_len, Y.shape))
+        else:
+            raise ValueError('Incorrect predictions dimension for evaluated method! Expected: {}, Received: {}'
+                             .format(ebunch_len, Y.shape))
+
+    if Y.ndim == 2:
+        if method_name is not None:
+            logging.warning('Output provided by method `{}` is two dimensional. Taking last column as predictions... '
+                            .format(method_name))
+        else:
+            logging.warning('Output of evaluated method is two dimensional. Taking last column as predictions... ')
+        return Y[:, -1]
+    else:
+        return Y
 
 
 def save_graph(G, output_path, delimiter=',', write_stats=True, write_weights=False, write_dir=True):
@@ -315,7 +516,7 @@ def prep_graph(G, relabel=True, del_self_loops=True, maincc=True):
     G : graph
        A preprocessed NetworkX graph
     Ids : list of tuples
-       A list of (OldNodeID, NewNodeID)
+       A list of (OldNodeID, NewNodeID). Returns None if relabel=False.
     """
     # Remove self loops
     if del_self_loops:

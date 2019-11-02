@@ -60,7 +60,7 @@ def plot_graph2d(G, emb=None, labels=None, colors=None, filename=None):
     Parameters
     ----------
     G : graph
-        A networkx graph
+        A NetworkX graph
     emb : matrix, optional
         A Numpy matrix containing the node embeddings. Default is None.
     labels : dict, optional
