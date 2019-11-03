@@ -1,12 +1,16 @@
 Features
 ========
 
-EvalNE has been designed as a pipeline of interconnected and interchangeable building blocks. This structure provides the flexibility to create different evaluation pipelines and, thus, to asses the LP accuracy of methods from node embeddings, edge embeddings or similarity scores. The main building blocks that constitute EvalNE as well as the types of methods it can evaluate are presented in the following diagram. Gray blocks represent modules provided by the library and white blocks are the user-specified methods to be evaluated. 
+EvalNE has been designed as a pipeline of interconnected and interchangeable building blocks. This structure provides the flexibility to create different evaluation pipelines and, thus, to evaluate methods from node embeddings, edge embeddings or similarity scores. The main building blocks that constitute EvalNE as well as the types of tasks and methods it can evaluate are presented in the following diagram. Gray blocks represent modules provided by the library and white blocks are the user-specified methods to be evaluated. 
 
 .. image:: diagram.png
     :width: 600px
     :alt: EvalNE diagram
     :align: center
+
+.. note::
+
+    For node classification (NC) tasks currently only node embedding methods are supported.
 
 .. note::
 
@@ -20,7 +24,7 @@ For Methodologists
 ------------------
 
 A command line interface in combination with a configuration file allow the user
-to evaluate any publicly available implementation of a NE method. These
+to evaluate any publicly available implementation of a NE method for LP, NR and NC. These
 implementations can be obtained from libraries such as 
 OpenNE_ or GEM_ as well as directly from the web pages of the authors e.g. 
 Deepwalk_, Node2vec_, LINE_, PRUNE_, Metapath2vec_, CNE_. 
@@ -44,6 +48,7 @@ baselines:
 * Adamic Adar Index
 * Preferential Attachment
 * Resource Allocation Index
+* All baselines (a combination of the heuristics in a 5-dim embedding)
 
 For Practitioners
 -----------------
@@ -52,14 +57,18 @@ When used as an API, EvalNE provides functions to:
 
 - Load and preprocess graphs
 - Obtain general graph statistics
-- Compute train/test/validation splits
-- Generate false edges
-- Evaluate link prediction from:
+- Conveniently read node/edge embeddings from files
+- Compute train/test/validation edge and node splits
+- Sample edges from a network using different criteria
+- Generate false edges using different algorithms
+- Evaluate link prediction and network reconstruction from methods returning: 
 
     - Node Embeddings
     - Edge Embeddings
     - Similarity scores (e.g. the ones given by LP heuristics)
 
+- Implements simple embedding vizualization routines
+- Includes node classification evaluation for Node embedding methods
 - Provides functions that compute edge embeddings from node feature vectors:
 
     - Average
@@ -67,7 +76,9 @@ When used as an API, EvalNE provides functions to:
     - Weighted L1
     - Weighted L2
 
-- Any sklearn binary classifier can be used as a LP algorithm
-- Implements several accuracy metrics.
+- Can use any sklearn classifier for LP/NR/NC tasks
 - Includes parameter tuning subroutines
+- Implements several evaluation metrics
+- AUC and PR curves can be provided as output
+- Includes routines to generate tabular output and easily parse it to Latex tables
 

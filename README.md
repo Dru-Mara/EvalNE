@@ -47,13 +47,16 @@ baselines:
 * Adamic Adar Index
 * Preferential Attachment
 * Resource Allocation Index
+* All baselines (a combination of the heuristics in a 5-dim embedding)
 
 #### For practitioners ####
 When used as an API, EvalNE provides functions to:
 
 * Load and preprocess graphs
 * Obtain general graph statistics
+* Conveniently read node/edge embeddings from files
 * Compute train/test/validation edge and node splits
+* Sample edges from a network using different criteria
 * Generate false edges using different algorithms
 * Evaluate link prediction and network reconstruction from methods returning: 
     * Node Embeddings
@@ -66,11 +69,11 @@ When used as an API, EvalNE provides functions to:
     * Hadamard
     * Weighted L1
     * Weighted L2
-* Can use any sklearn binary classifier as an LP algorithm
-* Implements several accuracy metrics
+* Can use any sklearn classifier for LP/NR/NC tasks
 * Includes parameter tuning subroutines
-* Method output can be provided as AUC and PR curves
-* Includes routines to generate tabular output and directly parse it to Latex
+* Implements several evaluation metrics
+* AUC and PR curves can be provided as output
+* Includes routines to generate tabular output and directly parse it to Latex tables
 
 
 ## Instalation ##
@@ -83,6 +86,8 @@ EvalNE depends on the following packages:
 * Sklearn
 * Matplotlib
 * Networkx 2.2
+* Pandas
+* tqdm
 
 Before installing EvalNE make sure that `pip` and `python-tk` packages are installed 
 on your system, this can be done 
@@ -150,8 +155,7 @@ provided in the next section.
 ### As a command line tool ###
 
 The library takes as input an *.ini* configuration file. This file allows the user 
-to specify the evaluation settings, from the methods and baselines to be evaluated
-to the edge embedding methods, parameters to tune or scores to report.
+to specify the evaluation settings, from the task to perform to the networks to use, data preprocessing, methods and baselines to evaluate, and types of output to provide.
 
 An example `conf.ini` file is provided describing the available options
 for each parameter. This file can be either modified to simulate different
@@ -282,8 +286,7 @@ The library can provide two types of outputs, depending on the value of the SCOR
 of the configuration file. If the keyword *all* is specified, the library will generate a 
 file named `eval_output.txt` containing for each method and network analysed all the 
 metrics available (auroc, precision, f-score, etc.). If more than one experiment repeat 
-is requested the values reported will be the average over all the repeats. The output 
-file will be located in the same path from which the evaluation was run.
+is requested the values reported will be the average over all the repeats. 
 
 Setting the SCORES option to `%(maximize)` will generate a similar output file as before.
 The content of this file, however, will be a table (Alg. x Networks) containing exclusively 

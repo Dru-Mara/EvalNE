@@ -5,8 +5,7 @@ As a command line tool
 ----------------------
 
 The library takes as input an *.ini* configuration file. This file allows the user 
-to specify the evaluation settings, from the methods and baselines to be evaluated
-to the edge embedding methods, parameters to tune or scores to report.
+to specify the evaluation settings, from the task to perform to the networks to use, data preprocessing, methods and baselines to evaluate, and types of output to provide.
 
 An example `conf.ini` file is provided describing the available options
 for each parameter. This file can be either modified to simulate different
@@ -98,27 +97,35 @@ As an API
 ---------
 
 The library can be imported and used like any other Python module. Next we
-present a very basic example, for more complete ones we refer the user to the
+present a very basic LP example, for more complete ones we refer the user to the
 `examples/` folder.
 
 ::
 
-	from evalne.evaluation import evaluator
-	from evalne.preprocessing import preprocess as pp
+	from evalne.evaluation.evaluator import LPEvaluator
+	from evalne.evaluation.split import EvalSplit
+	from evalne.evaluation.score import Scoresheet
+	from evalne.utils import preprocess as pp
 
 	# Load and preprocess the network
 	G = pp.load_graph('../evalne/tests/data/network.edgelist')
 	G, _ = pp.prep_graph(G)
 
 	# Create an evaluator and generate train/test edge split
-	nee = evaluator.Evaluator()
-	_ = nee.traintest_split.compute_splits(G)
+	traintest_split = EvalSplit()
+	traintest_split.compute_splits(G)
+	nee = LPEvaluator(traintest_split)
+
+	# Create a Scoresheet to store the results
+	scoresheet = Scoresheet()
 
 	# Set the baselines
 	methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient']
 
 	# Evaluate baselines
-	nee.evaluate_baseline(methods=methods)
+	for method in methods:
+	    result = nee.evaluate_baseline(method=method)
+	    scoresheet.log_results(result)
 
 	try:
 	    # Check if OpenNE is installed
@@ -135,41 +142,46 @@ present a very basic example, for more complete ones we refer the user to the
 	    # Evaluate embedding methods
 	    for i in range(len(methods)):
 		command = commands[i] + " --input {} --output {} --representation-size {}"
-		nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
-		                 edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+		results = nee.evaluate_cmd(method_name=methods[i], method_type='ne', command=command,
+		                           edge_embedding_methods=edge_emb, input_delim=' ', output_delim=' ')
+		scoresheet.log_results(results)
 
 	except ImportError:
 	    print("The OpenNE library is not installed. Reporting results only for the baselines...")
 	    pass
 
 	# Get output
-	results = nee.get_results()
-	for result in results:
-	    result.pretty_print()
+	scoresheet.print_tabular()
     
 
 Output
 ------
 
+The library stores all the output generated in a single folder per execution. The name
+of this folder is: `{task}_eval_{month}{day}_{hour}{min}`. Where `{task}` is one of:
+lp, nr or nc.
+
 The library can provide two types of outputs, depending on the value of the SCORES option
 of the configuration file. If the keyword *all* is specified, the library will generate a 
 file named `eval_output.txt` containing for each method and network analysed all the 
 metrics available (auroc, precision, f-score, etc.). If more than one experiment repeat 
-is requested the values reported will be the average over all the repeats. The output 
-file will be located in the same path from which the evaluation was run.
+is requested the values reported will be the average over all the repeats. 
 
 Setting the SCORES option to `%(maximize)` will generate a similar output file as before.
 The content of this file, however, will be a table (Alg. x Networks) containing exclusively 
 the score specified in the MAXIMIZE option for each combination of method and network
-averaged over all experiment repeats. 
+averaged over all experiment repeats. In addition a second table indicating the average 
+execution time per method and dataset will be generated.
 
-Additionally, if the option TRAINTEST_PATH contains a valid filename, EvalNE will create
-a file with that name under each of the OUTPATHS provided. In each of these paths the
-library will store the true and false train and test sets of edge. 
+If the option CURVES is set to a valid option then for each method dataset and experiment 
+repeat a PR or ROC curve will be generated. If the option SAVE_PREP_NW is set to True, each
+evaluated network will be stored, in edgelist format, in a folder with the same name as the 
+network.
 
-.. note::
-    The tabular output is not available for mixes of directed and undirected networks.
-    If this type of output is desired, all values of the option DIRECTED must be either
-    True or False.
+Finally, the library also generates an `eval.log` file and a `eval.pkl`. The first file 
+contains important information regarding the evaluation process such as methods whose 
+execution has failed, or validation scores. The second one encapsulates all the evaluation
+results as a pickle file. This file can be conveniently loaded and the results can be 
+transformed into e.g. pandas dataframes or latex tables.
 
 

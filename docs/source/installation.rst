@@ -10,6 +10,8 @@ EvalNE depends on the following open-source packages:
   * Sklearn
   * Matplotlib
   * Networkx 2.2
+  * Pandas
+  * tqdm
 
 Linux/MacOS
 -----------

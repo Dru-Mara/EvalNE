@@ -20,6 +20,14 @@ evalne.evaluation.evaluator module
     :undoc-members:
     :show-inheritance:
 
+evalne.evaluation.pipeline module
+---------------------------------
+
+.. automodule:: evalne.evaluation.pipeline
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 evalne.evaluation.score module
 ------------------------------
 

@@ -8,8 +8,8 @@ Subpackages
 
     evalne.evaluation
     evalne.methods
-    evalne.preprocessing
     evalne.tests
+    evalne.utils
 
 Module contents
 ---------------

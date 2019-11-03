@@ -28,6 +28,22 @@ evalne.tests.test\_preprocess module
     :undoc-members:
     :show-inheritance:
 
+evalne.tests.test\_spantree module
+----------------------------------
+
+.. automodule:: evalne.tests.test_spantree
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+evalne.tests.test\_visualize module
+-----------------------------------
+
+.. automodule:: evalne.tests.test_visualize
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------
