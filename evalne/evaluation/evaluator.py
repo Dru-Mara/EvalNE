@@ -12,7 +12,6 @@ from __future__ import division
 import itertools
 import os
 import re
-import subprocess
 import time
 import logging
 
@@ -26,6 +25,7 @@ from evalne.evaluation import split
 from evalne.methods import similarity as sim
 from evalne.utils import split_train_test as stt
 from evalne.utils import preprocess as pp
+from evalne.utils import util
 from evalne.methods import katz
 
 
@@ -60,7 +60,7 @@ class LPEvaluator(object):
 
     def _init_trainvalid(self):
         if self.trainvalid_split is None or len(self.trainvalid_split.test_edges) == 0:
-            logging.error('No test edges in trainvalid_split. Recomputing correct split...')
+            logging.warning('No test edges in trainvalid_split. Recomputing correct split...')
         self.trainvalid_split = split.EvalSplit()
         self.trainvalid_split.compute_splits(self.traintest_split.TG, nw_name=self.traintest_split.nw_name,
                                              train_frac=0.9, split_alg=self.traintest_split.split_alg,
@@ -161,7 +161,8 @@ class LPEvaluator(object):
         return results
 
     def evaluate_cmd(self, method_name, method_type, command, edge_embedding_methods, input_delim, output_delim,
-                     tune_params=None, maximize='auroc', write_weights=False, write_dir=False, verbose=True):
+                     tune_params=None, maximize='auroc', write_weights=False, write_dir=False, timeout=None,
+                     verbose=True):
         r"""
         Evaluates an embedding method and tunes its parameters from the method's command line call string. This
         function can evaluate node embedding, edge embedding or end to end embedding methods.
@@ -208,6 +209,9 @@ class LPEvaluator(object):
         write_dir : bool, optional
             This option is only relevant for undirected graphs. If False, the train graph will be stored with a single
             direction of the edges. If True, both directions of edges will be stored. Default is False.
+        timeout : int, optional
+            Sets a timeout in seconds for the method evaluation. If timeout is reached the evaluation stops and a
+            util.TimeoutExpired exception is raised. Default is None (1 year timeout).
         verbose : bool
             A parameter to control the amount of screen output.
 
@@ -219,6 +223,8 @@ class LPEvaluator(object):
         """
         # Measure execution time
         start = time.time()
+        if timeout is None:
+            timeout = 31536000
 
         # CHeck if a validation set needs to be initialized
         if self.trainvalid_split is None or len(self.trainvalid_split.test_edges) == 0:
@@ -275,17 +281,19 @@ class LPEvaluator(object):
                         if method_type == 'ee' or method_type == 'e2e':
                             results = self._evaluate_ee_e2e_cmd(self.trainvalid_split, method_name, method_type,
                                                                 ext_command, input_delim, output_delim, write_weights,
-                                                                write_dir, verbose)
+                                                                write_dir, timeout-(time.time()-start), verbose)
                         else:
                             results = self._evaluate_ne_cmd(self.trainvalid_split, method_name, ext_command,
                                                             edge_embedding_methods, input_delim, output_delim,
-                                                            write_weights, write_dir, verbose)
+                                                            write_weights, write_dir, timeout-(time.time()-start),
+                                                            verbose)
                         results = list(results)
 
                         # Log the best results
-                        best_results, best_params = self._log_best(best_results, best_params, results, param_str, maximize)
+                        best_results, best_params = self._log_best(best_results, best_params, results, param_str,
+                                                                   maximize)
 
-                    except (ValueError, IOError) as e:
+                    except (ValueError, IOError, util.TimeoutExpired) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.trainvalid_split.nw_name))
 
@@ -306,17 +314,19 @@ class LPEvaluator(object):
                         if method_type == 'ee' or method_type == 'e2e':
                             results = self._evaluate_ee_e2e_cmd(self.trainvalid_split, method_name, method_type,
                                                                 ext_command, input_delim, output_delim, write_weights,
-                                                                write_dir, verbose)
+                                                                write_dir, timeout-(time.time()-start), verbose)
                         else:
                             results = self._evaluate_ne_cmd(self.trainvalid_split, method_name, ext_command,
                                                             edge_embedding_methods, input_delim, output_delim,
-                                                            write_weights, write_dir, verbose)
+                                                            write_weights, write_dir, timeout-(time.time()-start),
+                                                            verbose)
                         results = list(results)
 
                         # Log the best results
-                        best_results, best_params = self._log_best(best_results, best_params, results, param_str, maximize)
+                        best_results, best_params = self._log_best(best_results, best_params, results, param_str,
+                                                                   maximize)
 
-                    except (ValueError, IOError) as e:
+                    except (ValueError, IOError, util.TimeoutExpired) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.trainvalid_split.nw_name))
 
@@ -342,11 +352,12 @@ class LPEvaluator(object):
             # Call the corresponding evaluation method on the whole train data for the selected ee method
             if method_type == 'ee' or method_type == 'e2e':
                 results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type, ext_command,
-                                                    input_delim, output_delim, write_weights, write_dir, verbose)
+                                                    input_delim, output_delim, write_weights, write_dir,
+                                                    timeout-(time.time()-start), verbose)
             else:
                 results = self._evaluate_ne_cmd(self.traintest_split, method_name, ext_command,
                                                 [edge_embedding_methods[best_ee_idx]], input_delim, output_delim,
-                                                write_weights, write_dir, verbose)
+                                                write_weights, write_dir, timeout-(time.time()-start), verbose)
 
             # # We found best params for each ee method, now train model on whole train data to get actual results
             # results = list()
@@ -378,14 +389,16 @@ class LPEvaluator(object):
             # Call the corresponding evaluation method
             if method_type == 'ee' or method_type == 'e2e':
                 results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type, command,
-                                                    input_delim, output_delim, write_weights, write_dir, verbose)
+                                                    input_delim, output_delim, write_weights, write_dir,
+                                                    timeout - (time.time() - start), verbose)
             else:
                 # We still have to tune the edge embedding method
                 if len(edge_embedding_methods) > 1:
                     # For NE methods first compute the results on validation data
                     valid_results = self._evaluate_ne_cmd(self.trainvalid_split, method_name, command,
                                                           edge_embedding_methods, input_delim, output_delim,
-                                                          write_weights, write_dir, verbose=False)
+                                                          write_weights, write_dir, timeout-(time.time()-start),
+                                                          verbose=False)
 
                     # Extract and log the validation scores
                     ee_scores = list()
@@ -405,7 +418,7 @@ class LPEvaluator(object):
                 # Compute the results on the full train split
                 results = self._evaluate_ne_cmd(self.traintest_split, method_name, command,
                                                 [edge_embedding_methods[best_ee_idx]], input_delim, output_delim,
-                                                write_weights, write_dir, verbose)
+                                                write_weights, write_dir, timeout, verbose)
 
         # End of exec time measurement
         end = time.time() - start
@@ -416,7 +429,7 @@ class LPEvaluator(object):
         return res
 
     def _evaluate_ne_cmd(self, data_split, method_name, command, edge_embedding_methods, input_delim, output_delim,
-                         write_weights, write_dir, verbose):
+                         write_weights, write_dir, timeout, verbose):
         """
         The actual implementation of the node embedding evaluation. Stores the train graph as an edgelist to a
         temporal file and provides it as input to the method evaluated. Performs the command line call and reads
@@ -443,11 +456,7 @@ class LPEvaluator(object):
 
         try:
             # Call the method
-            if not verbose:
-                devnull = open(os.devnull, 'w')
-                subprocess.call(command, shell=True, stdout=devnull, stderr=devnull)
-            else:
-                subprocess.call(command, shell=True)
+            util.run(command, timeout, verbose)
 
             # Some methods append a .txt filetype to the outfile if its the case, read the txt
             if os.path.isfile('./emb.tmp.txt'):
@@ -477,7 +486,7 @@ class LPEvaluator(object):
                 os.remove('./emb.tmp.txt')
 
     def _evaluate_ee_e2e_cmd(self, data_split, method_name, method_type, command, input_delim, output_delim,
-                             write_weights, write_dir, verbose):
+                             write_weights, write_dir, timeout, verbose):
         """
         The actual implementation of the edge embedding and end to end evaluation. Stores the train graph as an
         edgelist to a temporal file and provides it as input to the method evaluated together with the train and
@@ -539,11 +548,7 @@ class LPEvaluator(object):
 
         try:
             # Call the method
-            if not verbose:
-                devnull = open(os.devnull, 'w')
-                subprocess.call(command, shell=True, stdout=devnull, stderr=devnull)
-            else:
-                subprocess.call(command, shell=True)
+            util.run(command, timeout, verbose)
 
             if placeholders == 4:
                 # Check if the method is ee or e2e
@@ -707,10 +712,17 @@ class LPEvaluator(object):
         self.lp_model.fit(tr_edge_embeds, data_split.train_labels)
 
         # Predict
-        train_pred = self.lp_model.predict_proba(tr_edge_embeds)[:, 1]
-        test_pred = None
-        if te_edge_embeds is not None:
-            test_pred = self.lp_model.predict_proba(te_edge_embeds)[:, 1]
+        try:
+            train_pred = self.lp_model.predict_proba(tr_edge_embeds)[:, 1]
+            test_pred = None
+            if te_edge_embeds is not None:
+                test_pred = self.lp_model.predict_proba(te_edge_embeds)[:, 1]
+        except AttributeError:
+            logging.warning('Selected classifier does not have a `predict_proba` method... trying to call `predict`')
+            train_pred = self.lp_model.predict(tr_edge_embeds)
+            test_pred = None
+            if te_edge_embeds is not None:
+                test_pred = self.lp_model.predict(te_edge_embeds)
 
         # Return the predictions
         return train_pred, test_pred
@@ -800,7 +812,8 @@ class NREvaluator(LPEvaluator):
             raise ValueError('For network reconstruction test edges need to be set to None!')
 
     def evaluate_cmd(self, method_name, method_type, command, edge_embedding_methods, input_delim, output_delim,
-                     tune_params=None, maximize='auroc', write_weights=False, write_dir=False, verbose=True):
+                     tune_params=None, maximize='auroc', write_weights=False, write_dir=False, timeout=None,
+                     verbose=True):
         r"""
         Evaluates an embedding method and tunes its parameters from the method's command line call string. This
         function can evaluate node embedding, edge embedding or end to end embedding methods.
@@ -849,6 +862,9 @@ class NREvaluator(LPEvaluator):
         write_dir : bool, optional
             This option is only relevant for undirected graphs. If False, the train graph will be stored with a single
             direction of the edges. If True, both directions of edges will be stored. Default is False.
+        timeout : int, optional
+            Sets a timeout in seconds for the method evaluation. If timeout is reached the evaluation stops and a
+            util.TimeoutExpired exception is raised. Default is None (1 year timeout).
         verbose : bool
             A parameter to control the amount of screen output.
 
@@ -860,6 +876,8 @@ class NREvaluator(LPEvaluator):
         """
         # Measure execution time
         start = time.time()
+        if timeout is None:
+            timeout = 31536000
 
         # Check the method type and raise an error if necessary
         if method_type not in ['ne', 'ee', 'e2e']:
@@ -912,18 +930,19 @@ class NREvaluator(LPEvaluator):
                         if method_type == 'ee' or method_type == 'e2e':
                             results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type,
                                                                 ext_command, input_delim, output_delim, write_weights,
-                                                                write_dir, verbose)
+                                                                write_dir, timeout-(time.time()-start), verbose)
                         else:
                             results = self._evaluate_ne_cmd(self.traintest_split, method_name, ext_command,
                                                             edge_embedding_methods, input_delim, output_delim,
-                                                            write_weights, write_dir, verbose)
+                                                            write_weights, write_dir, timeout-(time.time()-start),
+                                                            verbose)
                         results = list(results)
 
                         # Log the best results
                         best_results, best_params = self._log_best(best_results, best_params, results, param_str,
                                                                    maximize, 'train')
 
-                    except (ValueError, IOError) as e:
+                    except (ValueError, IOError, util.TimeoutExpired) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.traintest_split.nw_name))
 
@@ -944,18 +963,19 @@ class NREvaluator(LPEvaluator):
                         if method_type == 'ee' or method_type == 'e2e':
                             results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type,
                                                                 ext_command, input_delim, output_delim, write_weights,
-                                                                write_dir, verbose)
+                                                                write_dir, timeout-(time.time()-start), verbose)
                         else:
                             results = self._evaluate_ne_cmd(self.traintest_split, method_name, ext_command,
                                                             edge_embedding_methods, input_delim, output_delim,
-                                                            write_weights, write_dir, verbose)
+                                                            write_weights, write_dir, timeout-(time.time()-start),
+                                                            verbose)
                         results = list(results)
 
                         # Log the best results
                         best_results, best_params = self._log_best(best_results, best_params, results, param_str,
                                                                    maximize, 'train')
 
-                    except (ValueError, IOError) as e:
+                    except (ValueError, IOError, util.TimeoutExpired) as e:
                         logging.exception('Exception occurred while evaluating params `{}` for method `{}` on `{}`.'
                                           .format(param_str, method_name, self.traintest_split.nw_name))
 
@@ -985,12 +1005,13 @@ class NREvaluator(LPEvaluator):
             # Call the corresponding evaluation method
             if method_type == 'ee' or method_type == 'e2e':
                 results = self._evaluate_ee_e2e_cmd(self.traintest_split, method_name, method_type, command,
-                                                    input_delim, output_delim, write_weights, write_dir, verbose)
+                                                    input_delim, output_delim, write_weights, write_dir,
+                                                    timeout-(time.time()-start), verbose)
             else:
                 # For NE methods we still have to tune the edge embedding method
                 results = self._evaluate_ne_cmd(self.traintest_split, method_name, command,
                                                 edge_embedding_methods, input_delim, output_delim,
-                                                write_weights, write_dir, verbose)
+                                                write_weights, write_dir, timeout-(time.time()-start), verbose)
 
                 # Extract and log the validation scores
                 ee_scores = list()
@@ -1093,7 +1114,7 @@ class NCEvaluator(object):
         return best_results, best_params, best_X
 
     def evaluate_cmd(self, method_name, command, input_delim, output_delim, tune_params=None,
-                     maximize='f1_micro', write_weights=False, write_dir=False, verbose=True):
+                     maximize='f1_micro', write_weights=False, write_dir=False, timeout=None, verbose=True):
         r"""
         Evaluates an embedding method and tunes its parameters from the method's command line call string. This
         function can currently only evaluate node embedding methods for NC.
@@ -1121,6 +1142,9 @@ class NCEvaluator(object):
         write_dir : bool, optional
             This option is only relevant for undirected graphs. If False, the train graph will be stored with a single
             direction of the edges. If True, both directions of edges will be stored. Default is False.
+        timeout : int, optional
+            Sets a timeout in seconds for the method evaluation. If timeout is reached the evaluation stops and a
+            util.TimeoutExpired exception is raised. Default is None (1 year timeout).
         verbose : bool, optional
             A parameter to control the amount of screen output. Default is True.
 
@@ -1132,6 +1156,8 @@ class NCEvaluator(object):
         """
         # Measure execution time
         start = time.time()
+        if timeout is None:
+            timeout = 31536000
 
         # Make sure the LRCV model maximizes what we want
         self.nc_model.scoring = maximize
@@ -1183,7 +1209,7 @@ class NCEvaluator(object):
 
                     try:
                         X = self._compute_emb_cmd(method_name, ext_command, input_delim, output_delim,
-                                                  write_weights, write_dir, verbose)
+                                                  write_weights, write_dir, timeout-(time.time()-start), verbose)
 
                         # Compute results for all shuffles
                         results = self._evaluate_ne(X, method_name, [self.trainvalid_frac], self.shuffles,
@@ -1193,7 +1219,7 @@ class NCEvaluator(object):
                         best_results, best_params, best_X = self._log_best(best_results, best_params, best_X,
                                                                            results, param_str, X, maximize, 'train')
 
-                    except (ValueError, IOError) as e:
+                    except (ValueError, IOError, util.TimeoutExpired) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}`.'
                                           .format(param_str, method_name))
 
@@ -1211,7 +1237,7 @@ class NCEvaluator(object):
 
                     try:
                         X = self._compute_emb_cmd(method_name, ext_command, input_delim, output_delim,
-                                                  write_weights, write_dir, verbose)
+                                                  write_weights, write_dir, timeout-(time.time()-start), verbose)
 
                         # Compute results for all shuffles
                         results = self._evaluate_ne(X, method_name, [self.trainvalid_frac], self.shuffles,
@@ -1221,7 +1247,7 @@ class NCEvaluator(object):
                         best_results, best_params, best_X = self._log_best(best_results, best_params, best_X,
                                                                            results, param_str, X, maximize, 'train')
 
-                    except (ValueError, IOError) as e:
+                    except (ValueError, IOError, util.TimeoutExpired) as e:
                         logging.exception('Exception occurred while evaluating param `{}` for method `{}`.'
                                           .format(param_str, method_name))
 
@@ -1243,7 +1269,7 @@ class NCEvaluator(object):
             # No parameter tuning is needed
             # Compute the results on the full train split
             X = self._compute_emb_cmd(method_name, command, input_delim, output_delim,
-                                      write_weights, write_dir, verbose)
+                                      write_weights, write_dir, timeout-(time.time()-start), verbose)
 
             results = self.evaluate_ne(X, method_name)
 
@@ -1256,7 +1282,7 @@ class NCEvaluator(object):
         return results
 
     def _compute_emb_cmd(self, method_name, command, input_delim, output_delim, write_weights,
-                         write_dir, verbose):
+                         write_dir, timeout, verbose):
         """
         Method that performs the cmd call and reads the embeddings. Stores the train graph as an edgelist to a temporal
         file and provides it as input to the method evaluated. Performs the command line call and reads the output.
@@ -1283,11 +1309,7 @@ class NCEvaluator(object):
 
         try:
             # Call the method
-            if not verbose:
-                devnull = open(os.devnull, 'w')
-                subprocess.call(command, shell=True, stdout=devnull, stderr=devnull)
-            else:
-                subprocess.call(command, shell=True)
+            util.run(command, timeout, verbose)
 
             # Some methods append a .txt filetype to the outfile if its the case, read the txt
             if os.path.isfile('./emb.tmp.txt'):

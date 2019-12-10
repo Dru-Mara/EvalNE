@@ -23,6 +23,7 @@ from evalne.evaluation.score import Scoresheet
 from evalne.evaluation.split import EvalSplit
 from evalne.utils import preprocess as pp
 from evalne.utils import split_train_test as stt
+from evalne.utils import util
 
 
 def main():
@@ -62,6 +63,8 @@ def evaluate(setup):
     logging.basicConfig(filename=os.path.join(outpath, 'eval.log'), format='%(asctime)s - %(levelname)s: %(message)s',
                         datefmt='%d-%m-%y %H:%M:%S', level=logging.INFO)
     logging.info('Evaluation start')
+    if setup.task != 'nc':
+        logging.info('Running evaluation using classifier: {}'.format(setup.lp_model))
 
     # Create a Scoresheet object to store all results
     if setup.task == 'nr':
@@ -118,6 +121,7 @@ def evaluate(setup):
                                                 train_frac=setup.trainvalid_frac, split_alg=setup.split_alg,
                                                 owa=setup.owa, fe_ratio=setup.fe_ratio, split_id=repeat,
                                                 verbose=setup.verbose)
+                # traintest_split.save_tr_graph(nw_outpath + '/TG_rep_{}'.format(repeat), ',', True, False, False)
                 # Create an LP evaluator
                 nee = LPEvaluator(traintest_split, trainvalid_split, setup.embed_dim, setup.lp_model)
 
@@ -132,6 +136,7 @@ def evaluate(setup):
                                            directed=nx.is_directed(G), nw_name=setup.names[i], TG=G)
                 # Create an NR evaluator
                 nee = NREvaluator(traintest_split, setup.embed_dim, setup.lp_model)
+
             else:
                 # Create an NC evaluator (train/valid fraction hardcoded to 10%)
                 nee = NCEvaluator(G, labels, setup.names[i], setup.nc_num_node_splits, setup.nc_node_fracs, 0.2,
@@ -167,9 +172,9 @@ def evaluate(setup):
     print('Average edge split times per dataset:')
     print(setup.names)
     print(np.array(edge_split_time).reshape(-1, repeats).mean(axis=1))
-    if setup.task != 'nc':
-        print('Coefficients of LP model (LogisticRegression) for each NE method:')
-        print(lp_coef)
+    # if setup.task != 'nc':
+    #     print('Coefficients of LP model ({}) for each NE method:'.format(setup.lp_model))
+    #     print(lp_coef)
     logging.info('Evaluation end\n\n')
 
 
@@ -253,7 +258,8 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                                                output_delim=setup.output_delim_other[j],
                                                tune_params=setup.tune_params_other[j],
                                                maximize=setup.maximize, write_weights=setup.write_weights_other[j],
-                                               write_dir=setup.write_dir_other[j], verbose=setup.verbose)
+                                               write_dir=setup.write_dir_other[j], timeout=setup.timeout,
+                                               verbose=setup.verbose)
                 else:
                     # Evaluate the method
                     results = nee.evaluate_cmd(method_name=setup.names_other[j], method_type=setup.embtype_other[j],
@@ -263,10 +269,11 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                                                output_delim=setup.output_delim_other[j],
                                                tune_params=setup.tune_params_other[j], maximize=setup.maximize,
                                                write_weights=setup.write_weights_other[j],
-                                               write_dir=setup.write_dir_other[j], verbose=setup.verbose)
+                                               write_dir=setup.write_dir_other[j], timeout=setup.timeout,
+                                               verbose=setup.verbose)
                     # Store LP model coefficients
-                    if setup.embtype_other[j] != 'e2e':
-                        lp_coef.update({setup.names_other[j]: nee.lp_model.coef_})
+                    #if setup.embtype_other[j] != 'e2e':
+                    #    lp_coef.update({setup.names_other[j]: nee.lp_model.coef_})
 
                     # Generate plots if necessary
                     if setup.curves is not None:
@@ -276,7 +283,7 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                 # Log the results
                 scoresheet.log_results(results)
 
-            except (ValueError, IOError) as e:
+            except (ValueError, IOError, util.TimeoutExpired) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_other[j], setup.names[i]))
 
@@ -298,16 +305,16 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                     results = nee.evaluate_cmd(method_name=setup.names_opne[j], command=command, input_delim=' ',
                                                output_delim=' ', tune_params=setup.tune_params_opne[j],
                                                maximize=setup.maximize, write_weights=False, write_dir=True,
-                                               verbose=setup.verbose)
+                                               timeout=setup.timeout, verbose=setup.verbose)
                 else:
                     # Evaluate the method
                     results = nee.evaluate_cmd(method_name=setup.names_opne[j], method_type='ne', command=command,
                                                input_delim=' ', edge_embedding_methods=setup.edge_embedding_methods,
                                                output_delim=' ', tune_params=setup.tune_params_opne[j],
                                                maximize=setup.maximize, write_weights=False, write_dir=True,
-                                               verbose=setup.verbose)
+                                               timeout=setup.timeout, verbose=setup.verbose)
                     # Store LP model coefficients
-                    lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
+                    #lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
 
                     # Generate plots if necessary
                     if setup.curves is not None:
@@ -317,7 +324,7 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                 # Log the results
                 scoresheet.log_results(results)
 
-            except (ValueError, IOError) as e:
+            except (ValueError, IOError, util.TimeoutExpired) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_other[j], setup.names[i]))
 

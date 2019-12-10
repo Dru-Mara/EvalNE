@@ -1,6 +1,38 @@
 Release Log
 ===========
 
+EvalNE v0.3.2
+-------------
+
+Release date: 10 Dec 2019
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update
+- Various docstring improvements
+- Improved variable descriptions in conf.ini
+
+New features
+~~~~~~~~~~~~
+- The user can now set a timeout for the execution of each method in the conf files. E.g. TIMEOUT = 1800
+- Conf files now support any sklearn binary classifer in the LP_MODEL variable. E.g. LP_MODEL=sklearn.svm.LinearSVC(C=1.0, kernel=’rbf’, degree=3)
+- Conf files also support keyword SVM for the LP_MODEL. This uses the sklearn LinearSVC model and tunes the regularization parameter on a grid [0.1, 1, 10, 100, 1000].
+- Method execution is made safer by using Popen communicate instead of subprocess.run(shell=True)
+- Removed lp_model coefficient output. This could lead to errors and failed evaluations for certain Sklearn binary classifiers
+- Method compute_pred() of LPEvaluator and NREvaluator classes now tries to use lp_model.predict_proba() if the classifier does not have it, the function defaults to lp_model.predict()
+- The scoresheet method get_pandas_df() now includes a repeat parameter which denotes the exact experiment repeat results the user wants in the DF. If repeat=None, the DF returned will contain the average metric over all experiment repeats. 
+
+Miscelaneous
+~~~~~~~~~~~~
+- Log file output now shows timeout errors and LR method selected
+- Corrected the cases where some warnings were reported as errors
+- Added util.py in the utils module
+
+Bugs
+~~~~
+- Fixed bug which would prevent the library to store the output when executed from Py3
+
+
 EvalNE v0.3.1
 -------------
 

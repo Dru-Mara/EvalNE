@@ -108,7 +108,7 @@ class Scoresheet:
             self._scoresheet[k1][k2]['eval_time'] = [result.params['eval_time']]
             self._scoresheet[k1][k2]['edge_embed_method'] = [result.params.get('edge_embed_method', 'None')]
 
-    def get_pandas_df(self, metric='auroc'):
+    def get_pandas_df(self, metric='auroc', repeat=None):
         r"""
         Returns a view of the Scoresheet as a pandas DataFrame for the specified metric. The columns of the DataFrame
         represent different networks and the rows different methods. If the same network/method combination is present
@@ -119,6 +119,9 @@ class Scoresheet:
         metric : basestring, optional
             Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'recall', 'fallout', 'miss', 'accuracy',
             'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
+        repeat : int, optional
+            An int indicating the experiment repeat for which the results should be returned. If not indicated, the
+            average over all repeats will be computed and returned. Default is None (computes average over repeats).
 
         Returns
         -------
@@ -145,11 +148,18 @@ class Scoresheet:
             for k2 in rows:
                 d = self._scoresheet[k1].get(k2)
                 if d is not None:
-                    if metric == 'edge_embed_method':
-                        count = Counter(d.get(metric))
-                        df[k1][k2] = count.most_common(1)[0][0]
+                    if repeat is None:
+                        if metric == 'edge_embed_method':
+                            count = Counter(d.get(metric))
+                            df[k1][k2] = count.most_common(1)[0][0]
+                        else:
+                            df[k1][k2] = np.around(np.mean(np.array(d.get(metric))), 4)
                     else:
-                        df[k1][k2] = np.around(np.mean(np.array(d.get(metric))), 4)
+                        arr = d.get(metric)
+                        if len(arr) >= repeat+1:
+                            df[k1][k2] = d.get(metric)[repeat]
+                        else:
+                            df[k1][k2] = None
         return df
 
     def get_latex(self, metric='auroc'):
@@ -198,8 +208,8 @@ class Scoresheet:
             'f_score' or 'eval_time'. Default is 'auroc'.
         """
         header = '\n\nEvaluation results ({}):\n-----------------------\n'.format(metric)
-        f = open(filename, 'a+b')
-        f.write(header.encode())
+        f = open(filename, 'a')
+        f.write(header)
         df = self.get_pandas_df(metric)
         df.to_csv(f, sep='\t', na_rep='NA')
         f.close()

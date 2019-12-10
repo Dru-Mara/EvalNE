@@ -11,9 +11,12 @@ from __future__ import division
 
 import os
 
+from evalne.utils import util
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import LinearSVC
+from sklearn.model_selection import GridSearchCV
 
 
 class EvalSetup(object):
@@ -288,13 +291,23 @@ class EvalSetup(object):
             return LogisticRegressionCV(Cs=10, cv=5, penalty='l2', scoring='roc_auc', solver='lbfgs', max_iter=100)
         elif model == 'DecisionTreeClassifier':
             return DecisionTreeClassifier()
+        elif model == 'SVM':
+            parameters = {'C': [0.1, 1, 10, 100, 1000]}
+            return GridSearchCV(LinearSVC(), parameters, cv=5)
         else:
-            raise ValueError('LP model {} not implemented. Use `LogisticRegression` or `LogisticRegressionCV`'
-                             .format(model))
+            return util.auto_import(model)
 
     @property
     def embed_dim(self):
         return self._config.getint('GENERAL', 'embed_dim')
+
+    @property
+    def timeout(self):
+        res = self._config.get('GENERAL', 'timeout')
+        if res == '' or res == 'None' or res == 'NONE':
+            return None
+        else:
+            return int(res)
 
     @property
     def verbose(self):

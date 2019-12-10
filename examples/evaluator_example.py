@@ -55,10 +55,13 @@ def main():
 
             # Generate one train/test split with default parameters
             traintest_split = EvalSplit()
-            traintest_split.compute_splits(G, nw_name=nw_names[i], train_frac=0.9, split_id=repeat)
+            traintest_split.compute_splits(G, nw_name=nw_names[i], train_frac=0.8, split_id=repeat)
+
+            trainvalid_split = EvalSplit()
+            trainvalid_split.compute_splits(traintest_split.TG, nw_name=nw_names[i], train_frac=0.9, split_id=repeat)
 
             # Create an evaluator
-            nee = LPEvaluator(traintest_split)
+            nee = LPEvaluator(traintest_split, trainvalid_split)
 
             # Evaluate baselines
             eval_baselines(nee, directed, scoresheet)
@@ -146,8 +149,7 @@ def eval_other(nee, scoresheet):
                                    edge_embedding_methods=edge_embedding_methods,
                                    input_delim=input_delim[i], output_delim=output_delim[i])
         # Log the list of results
-        for res in results:
-            scoresheet.log_results(res)
+        scoresheet.log_results(results)
 
     # Evaluate methods from OpenNE
     # ----------------------------
@@ -170,8 +172,7 @@ def eval_other(nee, scoresheet):
                                    edge_embedding_methods=edge_embedding_methods, input_delim=' ', output_delim=' ',
                                    tune_params=tune_params[i])
         # Log the list of results
-        for res in results:
-            scoresheet.log_results(res)
+        scoresheet.log_results(results)
 
 
 if __name__ == "__main__":
