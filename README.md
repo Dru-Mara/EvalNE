@@ -208,10 +208,10 @@ file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER optio
 4. Run the evaluation:
     ```bash
     # For conf.ini run:
-    python evalne ./examples/conf.ini
+    python -m evalne ./examples/conf.ini
 
     # For conf_node2vec.ini run:
-    python evalne ./examples/node2vec/conf_node2vec.ini
+    python -m evalne ./examples/node2vec/conf_node2vec.ini
     ```
 
 **Note**: The input networks for EvalNE are required to be in edgelist format.

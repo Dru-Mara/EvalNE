@@ -66,10 +66,10 @@ file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER optio
     .. code-block:: console
     
         # For conf.ini run:
-        foo@bar:~$ python evalne ./examples/conf.ini
+        foo@bar:~$ python -m evalne ./examples/conf.ini
     
         # For conf_node2vec.ini run:
-        foo@bar:~$ python evalne ./examples/node2vec/conf_node2vec.ini
+        foo@bar:~$ python -m evalne ./examples/node2vec/conf_node2vec.ini
 
 .. note::
 
