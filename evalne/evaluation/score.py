@@ -612,7 +612,7 @@ class Scores(object):
         else:
             MAX = k
 
-        aux = zip(*self._sorted)[0]
+        aux = list(zip(*self._sorted))[0]
         rel = sum(aux[:MAX])
         return (1.0 * rel) / k if k != 0 else float('NaN')
 
