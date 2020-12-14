@@ -44,8 +44,8 @@ setup(
         alternative
     ],
     classifiers=[
-        "Intended Audience :: Science/Research"
-        "Intended Audience :: Developers"
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Software Development",
         "Programming Language :: Python :: 2",
