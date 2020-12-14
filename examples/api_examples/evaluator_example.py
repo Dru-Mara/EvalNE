@@ -7,9 +7,7 @@
 # This example shows how to use the LPEvaluator class to analyse several algorithms on the input networks.
 # Takes raw graph as input, preprocesses it, computes tr/te splits and runs the algorithms on these splits.
 # In this case the parameters are provided by the user and no config file is used.
-
-# NOTE: In order to run this experiment `as is` OpenNE is required.
-# NOTE: The user must also check that the paths for `other methods` are correctly set.
+# Similar evaluations can be run for network reconstruction and sign prediction by importing the appropriate classes.
 
 from __future__ import division
 
@@ -19,17 +17,22 @@ import random
 import numpy as np
 
 from evalne.evaluation.evaluator import LPEvaluator
-from evalne.evaluation.split import EvalSplit
 from evalne.evaluation.score import Scoresheet
+from evalne.evaluation.split import LPEvalSplit
 from evalne.utils import preprocess as pp
+
+# NOTE: The example `as is`, only evaluates baseline methods. To evaluate the OpenNE methods, PRUNE and Metapath2vec
+# these must be first installed. Then the correct paths must be set in the commands_other variable.
+# Finally, the following parameter can be set to True.
+run_other_methods = False
 
 
 def main():
     # Initialize some parameters
     inpath = list()
-    nw_names = ['network', 'blogCatalog']   # Stores the names of the networks evaluated
-    inpath.append("../evalne/tests/data/network.edgelist")
-    # inpath.append("../../data/BlogCatalog/blog.edgelist")
+    nw_names = ['test_network', 'blogCatalog']   # Stores the names of the networks evaluated
+    inpath.append("../../evalne/tests/data/network.edgelist")
+    # inpath.append("../../../data/BlogCatalog/blog.edgelist")
     outpath = "./output/"
     if not os.path.exists(outpath):
         os.makedirs(outpath)
@@ -54,10 +57,10 @@ def main():
             print('Repetition {} of experiment'.format(repeat))
 
             # Generate one train/test split with default parameters
-            traintest_split = EvalSplit()
+            traintest_split = LPEvalSplit()
             traintest_split.compute_splits(G, nw_name=nw_names[i], train_frac=0.8, split_id=repeat)
 
-            trainvalid_split = EvalSplit()
+            trainvalid_split = LPEvalSplit()
             trainvalid_split.compute_splits(traintest_split.TG, nw_name=nw_names[i], train_frac=0.9, split_id=repeat)
 
             # Create an evaluator
@@ -67,11 +70,22 @@ def main():
             eval_baselines(nee, directed, scoresheet)
 
             # Evaluate other NE methods
-            eval_other(nee, scoresheet)
+            if run_other_methods:
+                eval_other(nee, scoresheet)
+
+    print("\nEvaluation results:")
+    print("-------------------")
+
+    # Print results averaged over exp repeats
+    scoresheet.print_tabular(metric='auroc')
 
     # Write results averaged over exp repeats to a single file
     scoresheet.write_tabular(filename=os.path.join(outpath, 'eval_output.txt'), metric='auroc')
 
+    # Store the Scoresheet object for later analysis
+    scoresheet.write_pickle(os.path.join(outpath, 'eval.pkl'))
+
+    print("Evaluation results are also stored in a folder named `output` in the current directory.")
     print("End of evaluation")
 
 
@@ -101,8 +115,9 @@ def eval_baselines(nee, directed, scoresheet):
     print('Evaluating baselines...')
 
     # Set the baselines
-    methods = ['random_prediction', 'common_neighbours', 'jaccard_coefficient', 'adamic_adar_index',
-               'preferential_attachment', 'resource_allocation_index']
+    methods = ['common_neighbours', 'jaccard_coefficient', 'cosine_similarity', 'lhn_index', 'topological_overlap',
+               'adamic_adar_index', 'resource_allocation_index', 'preferential_attachment', 'random_prediction',
+               'all_baselines']
 
     # Evaluate baseline methods
     for method in methods:

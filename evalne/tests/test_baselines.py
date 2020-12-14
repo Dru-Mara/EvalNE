@@ -6,8 +6,9 @@
 
 from __future__ import division
 
-from time import time
 import random
+from time import time
+
 import numpy as np
 
 from evalne.evaluation import evaluator
@@ -65,6 +66,8 @@ def test_baselines(nee, directed):
 
     for result in results:
         result.pretty_print()
+
+    results[0].save_predictions('predictions.txt')
 
 
 def run_test():

@@ -4,35 +4,34 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-# This code provides two different implementations of the katz score. The first one computes the exact score for the
-# complete graph using the adjacency matrix. The second one computes the approximated Katz score for each pair of input
-# nodes.
+# This file provides two different implementations of the katz score. The first, computes the exact score for the
+# complete graph using the adjacency matrix. The second, computes the approximated Katz score for each input node-pair.
 # Only undirected Graphs and Digraphs are supported.
-
-# TODO: the predict method will not work if the nodes are not consecutive integers
-# TODO: Both the exact (with sparse matrices) and aprox versions are extremely slow
-# TODO: the default for now is to take the adj mat as dense and do the computations. Can easily run out of memory...
 
 from __future__ import division
 
 import networkx as nx
 import numpy as np
-from scipy import sparse
-from scipy.sparse.linalg import inv
+
+__all__ = ['Katz', 'KatzApprox']
 
 
 class Katz(object):
-    r"""
-    Computes the Katz similarity based on paths between nodes in the graph. Shorter paths will contribute more than
-    longer ones. This contribution depends of the damping factor 'beta'. The exact score is computed using the
-    adj matrix of the full graph. This class exposes fit, predict, score and save_sim_matrix functions.
+    """
+    Computes the exact katz similarity based on paths between nodes in the graph. Shorter paths will contribute more
+    than longer ones. This contribution depends of the damping factor 'beta'. The exact katz score is computed using
+    the adj matrix of the full graph.
 
     Parameters
     ----------
     G : graph
-        A NetworkX graph
+        A NetworkX graph or digraph with nodes being consecutive integers starting at 0.
     beta = float, optional
-        The damping factor for the model. Default is 0.005
+        The damping factor for the model. Default is 0.005.
+
+    Notes
+    -----
+    The execution is based on dense matrices, so it may run out of memory.
     """
 
     def __init__(self, G, beta=0.005):
@@ -42,7 +41,7 @@ class Katz(object):
 
     def _fit(self):
 
-        # Versions using sparse matrices
+        # Version using sparse matrices
         # adj = nx.adjacency_matrix(self._G)
         # ident = sparse.identity(len(self._G.nodes)).tocsc()
         # sim = inv(ident - adj.multiply(self.beta).T) - ident
@@ -63,33 +62,69 @@ class Katz(object):
         return sim
 
     def predict(self, ebunch):
+        """
+        Computes the katz score for all node-pairs in ebunch.
+
+        Parameters
+        ----------
+        ebunch : iterable
+            An  iterable of node-pairs for which to compute the katz score.
+
+        Returns
+        -------
+        ndarray
+            An array containing the similarity scores.
+        """
         ebunch = np.array(ebunch)
         return np.array(self.sim[ebunch[:, 0], ebunch[:, 1]]).flatten()
 
     def save_sim_matrix(self, filename):
+        """
+        Stores the similarity matrix to a file with the given name.
+
+        Parameters
+        ----------
+        filename : string
+            The name and path of the file where the similarity matrix should be stored.
+        """
         np.savetxt(filename, self.sim, delimiter=',', fmt='%d')
 
     def get_params(self):
+        """
+        Returns a dictionary of model parameters.
+
+        Returns
+        -------
+        params : dict
+            A dictionary of model parameters and their values.
+        """
         params = {'beta': self.beta}
         return params
 
 
 class KatzApprox(object):
-    r"""
-    Computes the Katz similarity based on paths between nodes in the graph. Shorter paths will contribute more than
-    longer ones. This contribution depends of the damping factor 'beta'. The approximated score is computed using only
-    a subset of paths of length at most 'path_len' between every pair of nodes. This class exposes fit_predict
-    and score functions.
-    Reference: https://surface.syr.edu/etd/355/
+    """
+    Computes the approximated katz similarity based on paths between nodes in the graph. Shorter paths will contribute
+    more than longer ones. This contribution depends of the damping factor 'beta'. The approximated score is computed
+    using all paths between nodes of length at most 'path_len'.
 
     Parameters
     ----------
     G : graph
-        A NetworkX graph
+        A NetworkX graph or digraph.
     beta : float, optional
-        The damping factor for the model. Default is 0.005
+        The damping factor for the model. Default is 0.005.
     path_len : int, optional
         The maximum path length to consider between each pair of nodes. Default is 3.
+
+    Notes
+    -----
+    The implementation follows the indication in [1]. It becomes extremely slow for large dense graphs.
+
+    References
+    ----------
+    .. [1] R. Laishram "Link Prediction in Dynamic Weighted and Directed Social Network using Supervised Learning"
+           Dissertations - ALL. 355. 2015
     """
 
     def __init__(self, G, beta=0.005, path_len=3):
@@ -98,6 +133,19 @@ class KatzApprox(object):
         self.path_len = path_len
 
     def fit_predict(self, ebunch):
+        """
+        Computes the katz score for all node-pairs in ebunch.
+
+        Parameters
+        ----------
+        ebunch : iterable
+            An  iterable of node-pairs for which to compute the katz score.
+
+        Returns
+        -------
+        ndarray
+            An array containing the similarity scores.
+        """
         res = list()
         betas = np.zeros(self.path_len)
         for i in range(len(betas)):
@@ -110,5 +158,13 @@ class KatzApprox(object):
         return np.array(res).reshape(-1, 1)
 
     def get_params(self):
+        """
+        Returns a dictionary of model parameters.
+
+        Returns
+        -------
+        params : dict
+            A dictionary of model parameters and their values.
+        """
         params = {'beta': self.beta, 'path_len': self.path_len}
         return params

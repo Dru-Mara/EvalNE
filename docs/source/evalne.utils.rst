@@ -20,6 +20,14 @@ evalne.utils.split\_train\_test module
     :undoc-members:
     :show-inheritance:
 
+evalne.utils.util module
+------------------------
+
+.. automodule:: evalne.utils.util
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 evalne.utils.viz\_utils module
 ------------------------------
 

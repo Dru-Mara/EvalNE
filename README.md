@@ -8,12 +8,12 @@
 
 This repository provides the source code for EvalNE, an open-source Python
 library designed for assessing and comparing the performance of Network
-Embedding (NE) methods on Link Prediction (LP), Network Reconstruction (NR), 
-Node Classification (NR) and vizualization tasks. The library intends to
-simplify these complex and time consuming evaluation processes by providing
-automation and abstraction of tasks such as hyper-parameter tuning, selection of
-train and test edges and nodes, negative sampling, selection of the adequate 
-scoring function, etc.
+Embedding (NE) methods on Link Prediction (LP), Sign prediction (SP), 
+Network Reconstruction (NR) and Node Classification (NC) tasks. 
+The library intends to simplify these complex and time consuming evaluation 
+processes by providing automation and abstraction of tasks such as 
+hyper-parameter tuning and model validation, node and edge sampling, node-pair 
+embedding computation, results reporting and data visualization.
 
 The library can be used both as a command line tool and an API. In its current 
 version, EvalNE can evaluate unweighted directed and undirected simple networks.
@@ -23,9 +23,12 @@ documentation of EvalNE is hosted by *Read the Docs* and can be found
 [here](https://evalne.readthedocs.io/en/latest/).
 
 #### For Methodologists ####
-A command line interface in combination with a configuration file allows the user
-to evaluate any publicly available implementation of a NE method without the need
-to write additional code. These implementations can be obtained from libraries 
+A command line interface in combination with a configuration file (describing datasets, 
+methods and evaluation setup) allows the user to evaluate any embedding method and compare 
+it to the state of the art or replicate the experimental setup of existing papers without 
+the need to write additional code. EvalNE does not provide implementations of any NE methods
+but offers the necessary environment to evaluate any off-the-shelf algorithm. 
+Implementations of NE methods can be obtained from libraries 
 such as 
 [OpenNE](https://github.com/thunlp/OpenNE) or
 [GEM](https://github.com/palash1992/GEM) 
@@ -37,9 +40,9 @@ as well as directly from the web pages of the authors e.g.
 [Metapath2vec](https://ericdongyx.github.io/metapath2vec/m2v.html),
 [CNE](https://bitbucket.org/ghentdatascience/cne/).
 
-EvalNE also includes the following LP heuristics for both directed and
+EvalNE does, however, includes the following LP heuristics for both directed and
 undirected networks (in and out node neighbourhoods), which can be used as
-baselines:
+baselines for different downstream tasks:
 
 * Random Prediction
 * Common Neighbours
@@ -47,7 +50,11 @@ baselines:
 * Adamic Adar Index
 * Preferential Attachment
 * Resource Allocation Index
-* All baselines (a combination of the heuristics in a 5-dim embedding)
+* Cosine Similarity
+* Leicht-Holme-Newman index
+* Topological Overlap
+* Katz similarity
+* All baselines (a combination of the first 5 heuristics in a 5-dim embedding)
 
 #### For practitioners ####
 When used as an API, EvalNE provides functions to:
@@ -55,25 +62,32 @@ When used as an API, EvalNE provides functions to:
 * Load and preprocess graphs
 * Obtain general graph statistics
 * Conveniently read node/edge embeddings from files
-* Compute train/test/validation edge and node splits
-* Sample edges from a network using different criteria
-* Generate false edges using different algorithms
-* Evaluate link prediction and network reconstruction from methods returning: 
+* Sample nodes/edges to form train/test/validation sets
+* Different approaches for edge sampling:
+    * Timestamp based sampling: latest nodes are used for testing
+    * Random sampling: random split of edges in train and test sets
+    * Spanning tree sampling: train set will contain a spanning tree of the graph
+    * Fast depth first search sampling: similar to spanning tree but based of DFS
+* Negative sampling or generation of non-edge pairs using:
+    * Open world assumption: train non-edges do not overlap with train edges
+    * Closed world assumption: train non-edges do not overlap with either train nor test edges
+* Evaluate LP, SP and NR for methods that output: 
     * Node Embeddings
-    * Edge Embeddings
+    * Node-pair Embeddings
     * Similarity scores (e.g. the ones given by LP heuristics)
-* Implements simple embedding vizualization routines
-* Includes node classification evaluation for Node embedding methods
-* Provides functions that compute edge embeddings from node feature vectors
+* Implements simple visualization routines for embeddings and graphs 
+* Includes NC evaluation for node embedding methods
+* Provides binary operators to compute edge embeddings from node feature vectors:
     * Average
     * Hadamard
     * Weighted L1
     * Weighted L2
-* Can use any sklearn classifier for LP/NR/NC tasks
-* Includes parameter tuning subroutines
-* Implements several evaluation metrics
+* Can use any scikit-learn classifier for LP/SP/NR/NC tasks
+* Provides routines to run command line commands or functions with a given timeout
+* Includes hyperparameter tuning based on grid search
+* Implements over 10 different evaluation metrics such as AUC, F-score, etc.
 * AUC and PR curves can be provided as output
-* Includes routines to generate tabular output and directly parse it to Latex tables
+* Includes routines to generate tabular outputs and directly parse them to Latex tables
 
 
 ## Instalation ##
@@ -83,15 +97,14 @@ The library has been tested on Python 2.7 and Python 3.6.
 EvalNE depends on the following packages:
 * Numpy
 * Scipy
-* Sklearn
+* Scikit-learn
 * Matplotlib
-* Networkx 2.2
+* NetworkX
 * Pandas
 * tqdm
 
 Before installing EvalNE make sure that `pip` and `python-tk` packages are installed 
-on your system, this can be done 
-by running:
+on your system, this can be done by running:
 ```bash
 # Python 2
 sudo apt-get install python-pip
@@ -130,7 +143,9 @@ pip3 install evalne
     sudo python3 setup.py install
     ```
 
-Check the installation by running `simple_example.py` or `functions_example.py` e.g.:
+Check the installation by running `simple_example.py` or `functions_example.py` as shown below.
+If you have installed the package using pip, you will need to download the examples folder from
+the github repository first.
 ```bash
 # Python 2
 cd examples/
@@ -155,7 +170,8 @@ provided in the next section.
 ### As a command line tool ###
 
 The library takes as input an *.ini* configuration file. This file allows the user 
-to specify the evaluation settings, from the task to perform to the networks to use, data preprocessing, methods and baselines to evaluate, and types of output to provide.
+to specify the evaluation settings, from the task to perform to the networks to use, 
+data preprocessing, methods and baselines to evaluate, and types of output to provide.
 
 An example `conf.ini` file is provided describing the available options
 for each parameter. This file can be either modified to simulate different
@@ -163,9 +179,9 @@ evaluation settings or used as a template to generate other *.ini* files.
 
 Additional configuration (*.ini*) files are provided replicating the experimental 
 sections of different papers in the NE literature. These can be found in different
-folders under `examples/`. One such configuration file is 
-`examples/node2vec/conf_node2vec.ini`. This file simulates the link prediction 
-experiments of the paper "Scalable Feature Learning for Networks" by A. Grover 
+folders under `examples/replicated_setups`. One such configuration file is 
+`examples/replicated_setups/node2vec/conf_node2vec.ini`. This file simulates the link 
+prediction experiments of the paper "Scalable Feature Learning for Networks" by A. Grover 
 and J. Leskovec.
 
 Once the configuration is set, the evaluation can be run as indicated in the next
@@ -190,18 +206,16 @@ file, the following steps are necessary:
 2. Download the datasets used in the examples:
    * For `conf.ini`:
       * [StudentDB](http://adrem.ua.ac.be/smurfig)
+      * [Facebook](https://snap.stanford.edu/data/egonets-Facebook.html) (combined network)
       * [ArXiv GR-QC](https://snap.stanford.edu/data/ca-GrQc.html)
    * For other *.ini* files you may need:
-      * [Facebook](https://snap.stanford.edu/data/egonets-Facebook.html) (combined network)
       * [Facebook-wallpost](http://socialnetworks.mpi-sws.org/data-wosn2009.html)
       * [ArXiv Astro-Ph](http://snap.stanford.edu/data/ca-AstroPh.html)
       * [ArXiv Hep-Ph](https://snap.stanford.edu/data/cit-HepPh.html)
       * [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3)
       * [Wikipedia](http://snap.stanford.edu/node2vec)
       * [PPI](http://snap.stanford.edu/node2vec/Homo_sapiens.mat)
-      
-      
-    
+
 3. Set the correct dataset paths in the INPATHS option of the corresponding *.ini* 
 file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER options. 
 
@@ -218,13 +232,13 @@ file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER optio
 
 ### As an API ###
 
-The library can be imported and used like any other Python module. Next we
+The library can be imported and used like any other Python module. Next, we
 present a very basic LP example, for more complete ones we refer the user to the
-`examples/` folder.
+`examples` folder and the docstring documentation of the evaluator and the split submodules.
 
 ```python
 from evalne.evaluation.evaluator import LPEvaluator
-from evalne.evaluation.split import EvalSplit
+from evalne.evaluation.split import LPEvalSplit
 from evalne.evaluation.score import Scoresheet
 from evalne.utils import preprocess as pp
 
@@ -233,7 +247,7 @@ G = pp.load_graph('../evalne/tests/data/network.edgelist')
 G, _ = pp.prep_graph(G)
 
 # Create an evaluator and generate train/test edge split
-traintest_split = EvalSplit()
+traintest_split = LPEvalSplit()
 traintest_split.compute_splits(G)
 nee = LPEvaluator(traintest_split)
 
@@ -280,7 +294,7 @@ scoresheet.print_tabular()
 
 The library stores all the output generated in a single folder per execution. The name
 of this folder is: `{task}_eval_{month}{day}_{hour}{min}`. Where `{task}` is one of:
-lp, nr or nc.
+lp, sp, nr or nc.
 
 The library can provide two types of outputs, depending on the value of the SCORES option
 of the configuration file. If the keyword *all* is specified, the library will generate a 

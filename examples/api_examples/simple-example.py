@@ -5,18 +5,20 @@
 # Date: 18/12/2018
 
 # This simple example is the one presented in the README.md file.
+# Network reconstruction and sign prediction can be computed in the same manner by simply substituting LPEvaluator and
+# LPEvalSplit by NREvaluator and NREvalSplit or SPEvaluator and SPEvalSplit.
 
 from evalne.evaluation.evaluator import LPEvaluator
-from evalne.evaluation.split import EvalSplit
 from evalne.evaluation.score import Scoresheet
+from evalne.evaluation.split import LPEvalSplit
 from evalne.utils import preprocess as pp
 
 # Load and preprocess the network
-G = pp.load_graph('../evalne/tests/data/network.edgelist')
+G = pp.load_graph('../../evalne/tests/data/network.edgelist')
 G, _ = pp.prep_graph(G)
 
 # Create an evaluator and generate train/test edge split
-traintest_split = EvalSplit()
+traintest_split = LPEvalSplit()
 traintest_split.compute_splits(G)
 nee = LPEvaluator(traintest_split)
 

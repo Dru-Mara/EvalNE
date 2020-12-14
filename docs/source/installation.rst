@@ -5,13 +5,13 @@ The library has been tested on Python 2.7 and Python 3.6. The supported platform
 include Linux, Mac OS and Microsoft Windows.
 
 EvalNE depends on the following open-source packages:
-  * Numpy
-  * Scipy
-  * Sklearn
-  * Matplotlib
-  * Networkx 2.2
-  * Pandas
-  * tqdm
+   * Numpy
+   * Scipy
+   * Scikit-learn
+   * Matplotlib
+   * NetworkX
+   * Pandas
+   * tqdm
 
 Linux/MacOS
 -----------
@@ -60,7 +60,9 @@ on your system, this can be done by running:
 	    foo@bar:~$ pip3 install -r requirements.txt
 	    foo@bar:~$ sudo python3 setup.py install
 
-Check the installation by running `simple_example.py` or `functions_example.py` e.g.:
+Check the installation by running `simple_example.py` or `functions_example.py` as shown below.
+If you have installed the package using pip, you will need to download the examples folder from
+the github repository first.
 
 .. code-block:: console
 

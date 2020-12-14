@@ -10,9 +10,10 @@
 from __future__ import division
 
 import os
+from sys import argv
+
 import networkx as nx
 
-from sys import argv
 from evalne.utils import preprocess as pp
 
 

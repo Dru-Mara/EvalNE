@@ -6,10 +6,11 @@ EvalNE - A Framework for Evaluating Network Embeddings
     :alt: EvalNE logo
     :align: center
 
-EvalNE is an open source Python library designed for assessing and comparing the performance of Network Embedding (NE) methods on Link Prediction (LP), Network Reconstruction (NR), 
-Node Classification (NC) and vizualization tasks. The library intends to simplify these complex and time consuming evaluation processes by providing automation and abstraction of tasks such as model hyper-parameter tuning, selection of train and test edges and nodes, negative sampling and selection of the evaluation metrics, among many others.
+EvalNE is an open source Python library designed for assessing and comparing the performance of Network Embedding (NE) methods on Link Prediction (LP), Sign Prediction (SP), Network Reconstruction (NR), 
+Node Classification (NC) and vizualization downstream tasks. The library intends to simplify these complex and time consuming evaluation processes by providing automation and abstraction of tasks such as model hyper-parameter tuning and model validation, node and edge sampling, node-pair 
+embedding computation, results reporting and data visualization, among many others.
 EvalNE can be used both as a command line tool and as an API and is compatible with Python 2 and Python 3. 
-In its current version, EvalNE can evaluate unweighted directed and undirected simple networks.
+In its current version, EvalNE can evaluate weighted directed and undirected simple networks.
 
 EvalNE is provided under the MIT_ free software licence and is maintained by Alexandru Mara (alexandru(dot)mara(at)ugent(dot)be). The source code can be found on GitHub_. 
 

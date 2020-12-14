@@ -1,6 +1,43 @@
 Release Log
 ===========
 
+EvalNE v0.3.3
+-------------
+
+Release date: 14 Dec 2020
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update.
+- Extensive docstring improvements affecting all classes and functions.
+- Docstring examples included for all important classes and low level functions.
+- Improved variable descriptions in conf.ini.
+- Improved Readme.md and docs files.
+
+
+New features
+~~~~~~~~~~~~
+- Sign prediction added as a downstream task that can be evaluated (using the SPEvaluator class).
+- Three new classes (LPEvalSplit, SPEvalSplit and NREvalSplit) added that simplify the computation of evaluation splits for the LP, SP and NR downstream tasks.
+- Added three new heuristic baselines: Cosine Similarity, Leicht-Holme-Newman index and Topological Overlap.
+- When used as a command line tool, the library now provides both the train and test evaluation scores in the output folder.
+- When used as an API the user can now conveniently store the model predictions for any downstream task.
+- Added timeout for baselines evaluation
+- Added function that can run other functions in a separate process with given timeout.
+
+Miscelaneous
+~~~~~~~~~~~~
+- Improved requirement specification in requirements.txt and setup.py.
+- Improved library and module level imports.
+- General improvements on error and warning messages.
+- Memory errors are now catched and logged.
+- All numerical output is now rounded to 4 decimals.
+
+Bugs
+~~~~
+- Fixed a bug that would cause a TimeoutError to be raised incorrectly.
+
+
 EvalNE v0.3.2
 -------------
 

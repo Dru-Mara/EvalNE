@@ -13,8 +13,8 @@ evaluation settings or used as a template to generate other *.ini* files.
 
 Additional configuration (*.ini*) files are provided replicating the experimental 
 sections of different papers in the NE literature. These can be found in different
-folders under `examples/`. One such configuration file is 
-`examples/node2vec/conf_node2vec.ini`. This file simulates the link prediction 
+folders under `examples/replicated_setups`. One such configuration file is 
+`examples/replicated_setups/node2vec/conf_node2vec.ini`. This file simulates the link prediction 
 experiments of the paper "Scalable Feature Learning for Networks" by A. Grover 
 and J. Leskovec.
 
@@ -46,11 +46,11 @@ file, the following steps are necessary:
   * For `conf.ini`:
 
     * StudentDB_
+    * Facebook_ combined network
     * Arxiv GR-QC_
 
   * For other *.ini* files you may need:
 
-    * Facebook_ combined network
     * Facebook-wallpost_
     * Arxiv Astro-Ph_
     * ArXiv Hep-Ph_ (https://snap.stanford.edu/data/cit-HepPh.html)
@@ -96,14 +96,14 @@ file. And the correct method paths under METHODS_OPNE and/or METHODS_OTHER optio
 As an API
 ---------
 
-The library can be imported and used like any other Python module. Next we
+The library can be imported and used like any other Python module. Next, we
 present a very basic LP example, for more complete ones we refer the user to the
-`examples/` folder.
+`examples` folder and the docstring documentation of the evaluator and the split submodules.
 
 ::
 
 	from evalne.evaluation.evaluator import LPEvaluator
-	from evalne.evaluation.split import EvalSplit
+	from evalne.evaluation.split import LPEvalSplit
 	from evalne.evaluation.score import Scoresheet
 	from evalne.utils import preprocess as pp
 
@@ -112,7 +112,7 @@ present a very basic LP example, for more complete ones we refer the user to the
 	G, _ = pp.prep_graph(G)
 
 	# Create an evaluator and generate train/test edge split
-	traintest_split = EvalSplit()
+	traintest_split = LPEvalSplit()
 	traintest_split.compute_splits(G)
 	nee = LPEvaluator(traintest_split)
 
@@ -159,7 +159,7 @@ Output
 
 The library stores all the output generated in a single folder per execution. The name
 of this folder is: `{task}_eval_{month}{day}_{hour}{min}`. Where `{task}` is one of:
-lp, nr or nc.
+lp, sp, nr or nc.
 
 The library can provide two types of outputs, depending on the value of the SCORES option
 of the configuration file. If the keyword *all* is specified, the library will generate a 
@@ -183,5 +183,4 @@ contains important information regarding the evaluation process such as methods 
 execution has failed, or validation scores. The second one encapsulates all the evaluation
 results as a pickle file. This file can be conveniently loaded and the results can be 
 transformed into e.g. pandas dataframes or latex tables.
-
 

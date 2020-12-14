@@ -4,7 +4,7 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-# Note: This is just an example of how to use most of the low level functions in EvalNE.
+# Note: This is just an example of how to use some of the low level functions in EvalNE.
 # If possible the Evaluator and Split classes should be used as they simplify the pipeline.
 # Diagram of the evaluation:
 # preprocess_data -> split_train_test -> compute_node/edge_emb -> predict_edges -> evaluate_accuracy
@@ -27,7 +27,7 @@ from evalne.utils import split_train_test as stt
 ###########################
 
 
-dataset_path = "../evalne/tests/data/network.edgelist"
+dataset_path = "../../evalne/tests/data/network.edgelist"
 output_path = "./output/"
 directed = False
 random.seed(99)
@@ -43,8 +43,9 @@ start = time()
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
-if not os.path.exists(output_path + "lp_train_test_splits/"):
-    os.makedirs(output_path + "lp_train_test_splits/")
+traintest_path = os.path.join(output_path, "lp_train_test_splits")
+if not os.path.exists(traintest_path):
+    os.makedirs(traintest_path)
 
 # ---------------
 # Preprocess data
@@ -57,31 +58,31 @@ G = pp.load_graph(dataset_path, delimiter=",", comments='#', directed=directed)
 pp.get_stats(G)
 
 # Or store them to a file
-pp.get_stats(G, output_path + "stats.txt")
+pp.get_stats(G, os.path.join(output_path, "stats.txt"))
 
 # Preprocess the graph
 SG, ids = pp.prep_graph(G, relabel=True, del_self_loops=True)
 
 # Get non-edges so that the reversed edge exists in the graph
 if directed:
-    redges = pp.get_redges_false(SG, output_path=output_path + "redges.csv")
+    redges = pp.get_redges_false(SG, output_path=os.path.join(output_path, "redges.csv"))
 
 # Store the graph to a file
-pp.save_graph(SG, output_path=output_path + "network_prep.edgelist", delimiter=',', write_stats=True)
+pp.save_graph(SG, output_path=os.path.join(output_path, "network_prep.edgelist"), delimiter=',', write_stats=True)
 
 # ----------------
 # Split train test
 # ----------------
 
 # Compute train/test splits and false edges in parallel
-stt.compute_splits_parallel(SG, output_path + "lp_train_test_splits/network_prep_51", owa=True,
+stt.compute_splits_parallel(SG, os.path.join(traintest_path, "network_prep_51"), owa=True,
                             train_frac=0.51, num_fe_train=None, num_fe_test=None, num_splits=5)
 
 # The overlap between the 5 generated sets can be easily checked
 print("Overlap check for train sets: ")
-stt.check_overlap(filename=output_path + "lp_train_test_splits/network_prep_51_trE", num_sets=5)
+stt.check_overlap(filename=os.path.join(traintest_path, "network_prep_51", "trE"), num_sets=5)
 print("Overlap check for test sets: ")
-stt.check_overlap(filename=output_path + "lp_train_test_splits/network_prep_51_teE", num_sets=5)
+stt.check_overlap(filename=os.path.join(traintest_path, "network_prep_51", "teE"), num_sets=5)
 
 # The same computations can be performed for the sets of non-edges
 # print "Overlap check for negative train sets: "
@@ -99,7 +100,7 @@ train_E_false, test_E_false = stt.generate_false_edges_cwa(SG, train_E=train_E, 
                                                            num_fe_test=None)
 
 # Store the computed edge sets to a file
-filenames = stt.store_train_test_splits(output_path + "lp_train_test_splits/network_prep_51",
+filenames = stt.store_train_test_splits(os.path.join(output_path, "lp_train_test_splits", "network_prep_51"),
                                         train_E=train_E, train_E_false=train_E_false, test_E=test_E,
                                         test_E_false=test_E_false, split_id=0)
 
@@ -147,8 +148,8 @@ print("Test AUROC {}: {}".format("common neighbours", test_auroc))
 
 # Compute precision recall curves
 # Options are: pr, roc, all
-results.plot(filename=output_path + 'CN_train', results='train', curve='all')
-results.plot(filename=output_path + 'CN_test', results='test', curve='all')
+results.plot(filename=os.path.join(output_path, 'CN_train'), results='train', curve='all')
+results.plot(filename=os.path.join(output_path, 'CN_test'), results='test', curve='all')
 
 # -----------------------------
 # Evaluate LP using Score class

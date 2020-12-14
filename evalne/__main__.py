@@ -4,25 +4,22 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
+import logging
 import os
 import random
 import time
+import numpy as np
+
 from datetime import datetime
 from datetime import timedelta
-import numpy as np
-import logging
-import networkx as nx
-
-from tqdm import tqdm
 from sys import argv
-from evalne.evaluation.evaluator import LPEvaluator
-from evalne.evaluation.evaluator import NREvaluator
-from evalne.evaluation.evaluator import NCEvaluator
+from tqdm import tqdm
+
+from evalne.evaluation.evaluator import *
+from evalne.evaluation.split import *
 from evalne.evaluation.pipeline import EvalSetup
 from evalne.evaluation.score import Scoresheet
-from evalne.evaluation.split import EvalSplit
 from evalne.utils import preprocess as pp
-from evalne.utils import split_train_test as stt
 from evalne.utils import util
 
 
@@ -66,16 +63,17 @@ def evaluate(setup):
     if setup.task != 'nc':
         logging.info('Running evaluation using classifier: {}'.format(setup.lp_model))
 
-    # Create a Scoresheet object to store all results
+    # Create Scoresheet objects to store the results
     if setup.task == 'nr':
-        scoresheet = Scoresheet(tr_te='train', precatk_vals=setup.precatk_vals)
+        scoresheet = Scoresheet(tr_te='train', precatk_vals=setup.precatk_vals)  # For NR we only have train results
+        scoresheet_tr = Scoresheet(tr_te='train', precatk_vals=setup.precatk_vals)
     else:
         scoresheet = Scoresheet(tr_te='test', precatk_vals=setup.precatk_vals)
+        scoresheet_tr = Scoresheet(tr_te='train', precatk_vals=setup.precatk_vals)
 
     # Initialize some variables
     edge_split_time = list()
-    lp_coef = dict()
-    repeats = setup.lp_num_edge_splits if setup.task == 'lp' else 1
+    repeats = setup.lp_num_edge_splits if setup.task in ['lp', 'sp'] else 1
     t = tqdm(total=len(inpaths) * repeats)
     t.set_description(desc='Progress on {} task'.format(setup.task))
 
@@ -107,12 +105,12 @@ def evaluate(setup):
             print('\nRepetition {} of experiment...'.format(repeat))
             print('-------------------------------------')
 
-            # Create train and validation edge splits
-            traintest_split = EvalSplit()
-            trainvalid_split = EvalSplit()
-
             split_time = time.time()
             if setup.task == 'lp':
+                # Create train and validation edge splits
+                traintest_split = LPEvalSplit()
+                trainvalid_split = LPEvalSplit()
+
                 # For LP compute train/test and train/valid splits
                 traintest_split.compute_splits(G, nw_name=setup.names[i], train_frac=setup.traintest_frac,
                                                split_alg=setup.split_alg, owa=setup.owa,
@@ -121,24 +119,38 @@ def evaluate(setup):
                                                 train_frac=setup.trainvalid_frac, split_alg=setup.split_alg,
                                                 owa=setup.owa, fe_ratio=setup.fe_ratio, split_id=repeat,
                                                 verbose=setup.verbose)
-                # traintest_split.save_tr_graph(nw_outpath + '/TG_rep_{}'.format(repeat), ',', True, False, False)
+
                 # Create an LP evaluator
                 nee = LPEvaluator(traintest_split, trainvalid_split, setup.embed_dim, setup.lp_model)
 
             elif setup.task == 'nr':
-                # For NR set TG = G no train/valid split needed and get random subset of true and false edges for pred
-                pos_e, neg_e = stt.random_edge_sample(nx.adj_matrix(G), setup.nr_edge_samp_frac, nx.is_directed(G))
-                if len(pos_e) == 0:
-                    logging.error('Sampling fraction {} on {} network returned 0 positive edges. Skipping evaluation...'
-                                  .format(setup.nr_edge_samp_frac, setup.names[i]))
-                    break
-                traintest_split.set_splits(train_E=pos_e, train_E_false=neg_e, test_E=None, test_E_false=None,
-                                           directed=nx.is_directed(G), nw_name=setup.names[i], TG=G)
+                # Create train edge split
+                traintest_split = NREvalSplit()
+
+                # For NR compute train/test split only
+                traintest_split.compute_splits(G, nw_name=setup.names[i], samp_frac=setup.nr_edge_samp_frac,
+                                               split_id=repeat, verbose=setup.verbose)
+
                 # Create an NR evaluator
                 nee = NREvaluator(traintest_split, setup.embed_dim, setup.lp_model)
 
+            elif setup.task == 'sp':
+                # Create train and validation edge splits
+                traintest_split = SPEvalSplit()
+                trainvalid_split = SPEvalSplit()
+
+                # For SP compute train/test and train/valid splits
+                traintest_split.compute_splits(G, nw_name=setup.names[i], train_frac=setup.traintest_frac,
+                                               split_alg=setup.split_alg, split_id=repeat, verbose=setup.verbose)
+                trainvalid_split.compute_splits(traintest_split.TG, nw_name=setup.names[i],
+                                                train_frac=setup.trainvalid_frac, split_alg=setup.split_alg,
+                                                split_id=repeat, verbose=setup.verbose)
+
+                # Create an SP evaluator
+                nee = SPEvaluator(traintest_split, trainvalid_split, setup.embed_dim, setup.lp_model)
+
             else:
-                # Create an NC evaluator (train/valid fraction hardcoded to 10%)
+                # Create an NC evaluator (train/valid fraction hardcoded to 20%)
                 nee = NCEvaluator(G, labels, setup.names[i], setup.nc_num_node_splits, setup.nc_node_fracs, 0.2,
                                   setup.embed_dim)
 
@@ -146,25 +158,30 @@ def evaluate(setup):
 
             # Evaluate baselines
             if setup.lp_baselines is not None and setup.task != 'nc':
-                eval_baselines(setup, nee, i, scoresheet, repeat, nw_outpath)
+                eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
 
             # Evaluate other NE methods
             if setup.methods_opne is not None or setup.methods_other is not None:
-                lp_coef = eval_other(setup, nee, i, scoresheet, repeat, nw_outpath)
+                lp_coef = eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
 
             # Update progress bar
             t.update(1)
 
         # Store in a pickle file the results up to this point in evaluation
+        scoresheet_tr.write_pickle(os.path.join(outpath, 'eval_tr.pkl'))
         scoresheet.write_pickle(os.path.join(outpath, 'eval.pkl'))
 
     # Store the results
     if setup.scores is not None:
         if setup.scores == 'all':
+            scoresheet_tr.write_all(filename=os.path.join(outpath, 'eval_tr_output.txt'))
             scoresheet.write_all(filename=os.path.join(outpath, 'eval_output.txt'))
         else:
+            scoresheet_tr.write_tabular(filename=os.path.join(outpath, 'eval_tr_output.txt'), metric=setup.scores)
+            scoresheet_tr.write_tabular(filename=os.path.join(outpath, 'eval_tr_output.txt'), metric='eval_time')
             scoresheet.write_tabular(filename=os.path.join(outpath, 'eval_output.txt'), metric=setup.scores)
             scoresheet.write_tabular(filename=os.path.join(outpath, 'eval_output.txt'), metric='eval_time')
+    scoresheet_tr.write_pickle(os.path.join(outpath, 'eval_tr.pkl'))
     scoresheet.write_pickle(os.path.join(outpath, 'eval.pkl'))
 
     # Close progress bar
@@ -185,11 +202,12 @@ def preprocess(setup, nw_outpath, i):
     print('Preprocessing graph...')
 
     # Load a graph
-    if setup.directed:
-        G = nx.read_edgelist(setup.inpaths[i], delimiter=setup.separators[i], comments=setup.comments[i],
-                             create_using=nx.DiGraph, nodetype=int)
+    if setup.task == 'sp':
+        G = pp.load_graph(setup.inpaths[i], delimiter=setup.separators[i], comments=setup.comments[i],
+                          directed=setup.directed, datatype=int)
     else:
-        G = nx.read_edgelist(setup.inpaths[i], delimiter=setup.separators[i], comments=setup.comments[i], nodetype=int)
+        G = pp.load_graph(setup.inpaths[i], delimiter=setup.separators[i], comments=setup.comments[i],
+                          directed=setup.directed, datatype=float)
 
     # Preprocess the graph
     if setup.task == 'lp' and setup.split_alg == 'random':
@@ -206,7 +224,7 @@ def preprocess(setup, nw_outpath, i):
     return G, ids
 
 
-def eval_baselines(setup, nee, i, scoresheet, repeat, nw_outpath):
+def eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):
     """
     Experiment to test the baselines.
     """
@@ -219,7 +237,8 @@ def eval_baselines(setup, nee, i, scoresheet, repeat, nw_outpath):
                 print('Input {} network is directed. Running baseline for all neighbourhoods specified...'
                       .format(setup.names[i]))
                 for neigh in setup.neighbourhood:
-                    result = nee.evaluate_baseline(method=method, neighbourhood=neigh)
+                    result = nee.evaluate_baseline(method=method, neighbourhood=neigh, timeout=setup.timeout)
+                    scoresheet_tr.log_results(result)
                     scoresheet.log_results(result)
                     # Plot the curves if needed
                     if setup.curves is not None:
@@ -228,18 +247,19 @@ def eval_baselines(setup, nee, i, scoresheet, repeat, nw_outpath):
 
             else:
                 print('Input {} network is undirected. Running standard baselines...'.format(setup.names[i]))
-                result = nee.evaluate_baseline(method=method)
+                result = nee.evaluate_baseline(method=method, timeout=setup.timeout)
+                scoresheet_tr.log_results(result)
                 scoresheet.log_results(result)
                 # Plot the curves if needed
                 if setup.curves is not None:
                     result.plot(filename=os.path.join(nw_outpath, '{}_rep_{}'.format(result.method, repeat)),
                                 curve=setup.curves)
-        except AttributeError as e:
+        except (MemoryError, AttributeError, util.TimeoutExpired) as e:                                            # ADD TypeError here
             logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                               .format(method, setup.names[i]))
 
 
-def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
+def eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):
     """
     Experiment to test other embedding methods not integrated in the library.
     """
@@ -272,7 +292,7 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                                                write_dir=setup.write_dir_other[j], timeout=setup.timeout,
                                                verbose=setup.verbose)
                     # Store LP model coefficients
-                    #if setup.embtype_other[j] != 'e2e':
+                    # if setup.embtype_other[j] != 'e2e':
                     #    lp_coef.update({setup.names_other[j]: nee.lp_model.coef_})
 
                     # Generate plots if necessary
@@ -281,9 +301,10 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                                      curve=setup.curves)
 
                 # Log the results
+                scoresheet_tr.log_results(results)
                 scoresheet.log_results(results)
 
-            except (ValueError, IOError, util.TimeoutExpired) as e:
+            except (MemoryError, ValueError, IOError, util.TimeoutExpired) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_other[j], setup.names[i]))
 
@@ -314,7 +335,7 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                                                maximize=setup.maximize, write_weights=False, write_dir=True,
                                                timeout=setup.timeout, verbose=setup.verbose)
                     # Store LP model coefficients
-                    #lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
+                    # lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
 
                     # Generate plots if necessary
                     if setup.curves is not None:
@@ -322,11 +343,12 @@ def eval_other(setup, nee, i, scoresheet, repeat, nw_outpath):
                                      curve=setup.curves)
 
                 # Log the results
+                scoresheet_tr.log_results(results)
                 scoresheet.log_results(results)
 
-            except (ValueError, IOError, util.TimeoutExpired) as e:
+            except (MemoryError, ValueError, IOError, util.TimeoutExpired) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
-                                  .format(setup.names_other[j], setup.names[i]))
+                                  .format(setup.names_opne[j], setup.names[i]))
 
     # Return the coefficients of the LP model
     return lp_coef

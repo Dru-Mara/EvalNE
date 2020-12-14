@@ -9,10 +9,16 @@ python setup.py install --user
 """
 
 from setuptools import setup, find_packages
+import sys
+
+if sys.version_info[0] == 2:
+    alternative = 'kiwisolver==1.1.0'
+else:
+    alternative = 'kiwisolver==1.3.1'
 
 setup(
     name="evalne",
-    version='0.3.2',
+    version='0.3.3',
     url="https://github.com/Dru-Mara/EvalNE",
     license="MIT License",
     author="Alexandru Mara",
@@ -33,7 +39,9 @@ setup(
         'scipy==0.19.1',
         'matplotlib==2.2.4',
         'pandas==0.24.2',
-        'tqdm'
+        'pyparsing==2.4.7',
+        'tqdm',
+        alternative
     ],
     classifiers=[
         "Intended Audience :: Science/Research"
