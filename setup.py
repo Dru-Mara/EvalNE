@@ -29,7 +29,7 @@ setup(
     keywords='evaluation embedding link-prediction sign-prediction node-classification network-reconstruction '
              'networks graphs visualization',
     packages=find_packages(),
-    python_requires='>=2.6, <=3.6',
+    python_requires='>=2.6, <3.7',
     zip_safe=False,
     tests_require=["pytest", "pytest-cov"],
     install_requires=[
