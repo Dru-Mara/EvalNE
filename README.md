@@ -324,7 +324,7 @@ transformed into e.g. pandas dataframes or latex tables.
 If you have found EvaNE useful in your research, please cite our 
 [arXiv paper](https://arxiv.org/abs/1901.09691):
 
-```
+```bibtex
     @misc{Mara2019,
       author = {Alexandru Mara and Jefrey Lijffijt and Tijl De Bie},
       title = {EvalNE: A Framework for Evaluating Network Embeddings on Link Prediction},
