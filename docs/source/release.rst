@@ -21,9 +21,9 @@ New features
 - Parameter checks in the EvalSetup class for .ini configuration files can now be turned on or off. 
 - New parallel coordinates plot has been added to visualize method performance from output pickle files. 
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
-- Input type errors are now catched and logged and no longer cause the evaluation to crash.
+- Input type errors are now cached and logged and no longer cause the evaluation to crash.
 
 
 EvalNE v0.3.3
@@ -49,7 +49,7 @@ New features
 - Added timeout for baselines evaluation
 - Added function that can run other functions in a separate process with given timeout.
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - Improved requirement specification in requirements.txt and setup.py.
 - Improved library and module level imports.
@@ -83,7 +83,7 @@ New features
 - Method compute_pred() of LPEvaluator and NREvaluator classes now tries to use lp_model.predict_proba() if the classifier does not have it, the function defaults to lp_model.predict()
 - The scoresheet method get_pandas_df() now includes a repeat parameter which denotes the exact experiment repeat results the user wants in the DF. If repeat=None, the DF returned will contain the average metric over all experiment repeats. 
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - Log file output now shows timeout errors and LR method selected
 - Corrected the cases where some warnings were reported as errors
@@ -111,7 +111,7 @@ New features
 - Functions for reading the embeddings, predictions and node labels have been added
  
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - General improvements in NC task
 - Added NCScores and NCResults classes
@@ -149,7 +149,7 @@ New features
 - Addes Scoresheet class to simplify output management
 - Export results directly to pandas dataframe and latex tables suppored
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - Changed default parameters for EvalSplit
 - Added new parameter for EvalSplit.set_split()
@@ -178,7 +178,7 @@ New features
 ~~~~~~~~~~~~
 - Evaluation output file now contains also a table of execution times per evaluated method.
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - Changed behaviour of verbosity flag. Now, if Verbose=False it deactivates all stdout for the methods being evaluated (not stderr) but maintains the library stdout.
 - Added more conf.ini files for reproducing the experimental section of different papers.
@@ -216,7 +216,7 @@ Documentation
 - Readme and docs update
 - Descriptions of each option in conf.ini added
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - Removed optional seed parameter from all methods in split_train_test.py
 - Removed random seed resetting in the edges split methods
@@ -262,7 +262,7 @@ Documentation
 - Release log added to Docs
 - Contributing added to Docs
 
-Miscelaneous
+Miscellaneous
 ~~~~~~~~~~~~
 - Exception handling improvements
 
