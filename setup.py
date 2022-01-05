@@ -18,7 +18,7 @@ else:
 
 setup(
     name="evalne",
-    version='0.3.3',
+    version='0.3.4',
     url="https://github.com/Dru-Mara/EvalNE",
     license="MIT License",
     author="Alexandru Mara",

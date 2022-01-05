@@ -9,6 +9,7 @@
 
 import os
 
+import pandas as pd
 import matplotlib as mpl
 import networkx as nx
 from sklearn.manifold import TSNE
@@ -136,3 +137,74 @@ def plot_curve(filename, x, y, x_label, y_label, title=None):
         plt.close()
     else:
         plt.show()
+
+
+def parallel_coord(scoresheet, features, class_col='methods'):
+    """
+    Generates a parallel coordinate plot from the given Scoresheet object and the set of features specified.
+
+    Parameters
+    ----------
+    scoresheet : evalne.Scoresheet
+        A Scoresheet object containing the results of an evaluation.
+    features : list
+        A list of strings indicating the features to show in the plot (in addition to methods and networks).
+        Accepted features are: 'auroc', 'average_precision', 'precision', 'recall',
+        'fallout', 'miss', 'accuracy', 'f_score', `eval_time` and `edge_embed_method`.
+    class_col : string, optional
+        Indicates the class to highlight. Options are `methods` and `networks`. Default is `methods`.
+    """
+    # Get dfs per feature and stack them
+    f_dfs = []
+    for f in features:
+        f_dfs.append(scoresheet.get_pandas_df(metric=f).stack())
+
+    # Concatenate dfs and reset indexing
+    df = pd.concat(f_dfs, axis=1, join="inner")
+    df.reset_index(inplace=True)
+
+    # Set correct column names
+    new_names = ['methods_str', 'networks_str']
+    new_names.extend(features)
+    df.set_axis(new_names, axis=1, inplace=True)
+
+    # Make networks and methods numerical
+    df['methods_str'] = pd.Categorical(df['methods_str'])
+    df['methods'] = df['methods_str'].cat.codes
+    df['methods'] = (df['methods'] - df['methods'].min()) / (df['methods'].max() - df['methods'].min())
+    df['networks_str'] = pd.Categorical(df['networks_str'])
+    df['networks'] = df['networks_str'].cat.codes
+    df['networks'] = (df['networks'] - df['networks'].min()) / (df['networks'].max() - df['networks'].min())
+    if 'edge_embed_method' in features:
+        df['edge_embed_method'] = pd.Categorical(df['edge_embed_method'])
+        df['edge_embed_method'] = df['edge_embed_method'].cat.codes     # TODO: fix this
+        df['edge_embed_method'] = (df['edge_embed_method'] - df['edge_embed_method'].min()) / \
+                                  (df['edge_embed_method'].max() - df['edge_embed_method'].min())
+    if 'eval_time' in features:
+        df['eval_time'] = (df['eval_time'] - df['eval_time'].min()) / \
+                                  (df['eval_time'].max() - df['eval_time'].min())
+
+    # Select all numerical cols
+    num = ['methods', 'networks']
+    num.extend(features)
+
+    # Generate the plot
+    pd.plotting.parallel_coordinates(df[num], class_col)
+    ax = plt.gca()
+
+    # Add labels
+    if class_col == 'methods':
+        for i, (label, val) in df.ix[:, ['networks_str', 'networks']].drop_duplicates().iterrows():
+            ax.annotate(label, xy=(0, val), ha='left', va='center')
+        aux = df.ix[:, ['methods_str', 'methods']].drop_duplicates()
+        plt.legend(aux['methods_str'])
+    elif class_col == 'networks':
+        for i, (label, val) in df.ix[:, ['methods_str', 'methods']].drop_duplicates().iterrows():
+            ax.annotate(label, xy=(0, val), ha='left', va='center')
+        aux = df.ix[:, ['networks_str', 'networks']].drop_duplicates()
+        plt.legend(aux['networks_str'])
+
+    # Some changes to plot axis
+    ax.yaxis.set_label_position("right")
+    ax.yaxis.tick_right()
+    plt.show()

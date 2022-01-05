@@ -1,10 +1,49 @@
 # EvalNE: A Python library for evaluating Network Embedding methods #
 
+<div id="top"></div>
+
 [![Documentation Status](https://readthedocs.org/projects/evalne/badge/?version=latest)](https://evalne.readthedocs.io/en/latest/?badge=latest)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/Dru-Mara/EvalNE/issues)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Dru-Mara/EvalNE/blob/master/LICENSE)
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 [![made-with-sphinx-doc](https://img.shields.io/badge/Made%20with-Sphinx-1f425f.svg)](https://www.sphinx-doc.org/)
+
+<div align="center">
+<a href="https://evalne.readthedocs.io/en/latest/">
+  <img src="docs/source/EvalNE-logo.jpg" alt="Logo" height="80">
+</a>
+<br />
+<a href="https://evalne.readthedocs.io/en/latest/"><strong>Read The Docs »</strong></a>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about-evalne">About EvalNE</a>
+      <ul>
+        <li><a href="#for-methodologists">For methodologists</a></li>
+        <li><a href="#for-practitioners">For practitioners</a></li>
+      </ul>
+    </li>
+    <li><a href="#installation">Installation</a></li>
+    <li>
+      <a href="#usage">Usage</a>
+        <ul>
+          <li><a href="#as-a-command-line-tool">As a command line tool</a></li>
+          <li><a href="#as-an-api">As an API</a></li>
+          <li><a href="#output">Output</a></li>
+        </ul>
+    </li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#citation">Citation</a></li>
+  </ol>
+</details>
+
+
+## About EvalNE ##
 
 This repository provides the source code for EvalNE, an open-source Python
 library designed for assessing and comparing the performance of Network
@@ -89,8 +128,10 @@ When used as an API, EvalNE provides functions to:
 * AUC and PR curves can be provided as output
 * Includes routines to generate tabular outputs and directly parse them to Latex tables
 
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-## Instalation ##
+
+## Instalation ## 
 
 The library has been tested on Python 2.7 and Python 3.6.
 
@@ -163,6 +204,8 @@ them are available
 and [here](https://www.dropbox.com/s/w3wmo2ru9kpk39n/code_metapath2vec.zip?dl=0), 
 respectively. The instructions on how to run evaluations using *.ini* files are 
 provided in the next section. 
+
+<p align="right">(<a href="#top">back to top</a>)</p>
 
 
 ## Usage ##
@@ -319,10 +362,54 @@ execution has failed, or validation scores. The second one encapsulates all the 
 results as a pickle file. This file can be conveniently loaded and the results can be 
 transformed into e.g. pandas dataframes or latex tables.
 
+### Parallelization ###
+
+Due to its efficiency, EvalNE makes extensive use of numpy for most operations. Numpy, in turn, 
+uses other libraries such as OpenMP, MKL, etc., to provide parallelization. In order to allow for 
+certain control on the maximum number of threads used during execution, we include a simple bash 
+script (`set_numpy_threads.sh`). The script located inside the `scripts` folder can be given execution
+permissions and run as follows:
+
+```bash
+# Give execution permissions:
+chmod +x set_numpy_threads.sh
+
+# Run the script:
+source set_numpy_threads.sh
+# The script will then ask for the maximum number of threads to use.
+ ```
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+## Contributing
+
+Contributions are **greatly appreciated**. If you want to help us improve EvalNE, 
+please fork the repo and create a new pull request. Don't forget to give the project a star! Thanks!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+Alternatively, you can make suggestions or report bugs by opening a new issue with the appropriate tag 
+("feature" or "bug") and following our Contributing template.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+## License
+
+Distributed under the MIT License. See `LICENSE.txt` for more information.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
 ## Citation ##
 
-If you have found EvaNE useful in your research, please cite our 
-[arXiv paper](https://arxiv.org/abs/1901.09691):
+If you have found EvaNE useful in your research, please consider giving the repo a star 
+and citing our [arXiv paper](https://arxiv.org/abs/1901.09691):
 
 ```bibtex
     @misc{Mara2019,
@@ -333,4 +420,6 @@ If you have found EvaNE useful in your research, please cite our
       eprint = {1901.09691}
     }
 ```
+
+<p align="right">(<a href="#top">back to top</a>)</p>
 

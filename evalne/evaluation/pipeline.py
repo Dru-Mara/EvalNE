@@ -29,9 +29,11 @@ class EvalSetup(object):
     ----------
     configpath : string
         The path of the .ini configuration file.
+    run_checks : bool, optional
+        Toggles .ini file parameter checks. Default is True.
     """
 
-    def __init__(self, configpath):
+    def __init__(self, configpath, run_checks=True):
         # Import config parser
         try:
             from ConfigParser import ConfigParser
@@ -44,12 +46,13 @@ class EvalSetup(object):
         self._config = config
 
         # Check input paremeters
-        self._check_task()
-        self._check_networks()
-        self._check_edgesplit()
-        self._check_methods('opne')
-        self._check_methods('other')
-        self._check_report()
+        if run_checks:
+            self._check_task()
+            self._check_networks()
+            self._check_edgesplit()
+            self._check_methods('opne')
+            self._check_methods('other')
+            self._check_report()
 
     def _check_task(self):
         """

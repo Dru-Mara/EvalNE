@@ -27,6 +27,7 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
 from sklearn.metrics import f1_score
+from sklearn.metrics import average_precision_score
 
 from evalne.utils import viz_utils as viz
 
@@ -129,8 +130,8 @@ class Scoresheet:
         Parameters
         ----------
         metric : string, optional
-            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'recall', 'fallout', 'miss', 'accuracy',
-            'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
+            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'average_precision', 'precision', 'recall', 'fallout',
+            'miss', 'accuracy', 'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
         repeat : int, optional
             An int indicating the experiment repeat for which the results should be returned. If not indicated, the
             average over all repeats will be computed and returned. Default is None (computes average over repeats).
@@ -211,8 +212,8 @@ class Scoresheet:
         Parameters
         ----------
         metric : string, optional
-            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'recall', 'fallout', 'miss', 'accuracy',
-            'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
+            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'average_precision', 'precision', 'recall', 'fallout',
+            'miss', 'accuracy', 'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
 
         Returns
         -------
@@ -231,8 +232,8 @@ class Scoresheet:
         Parameters
         ----------
         metric : string, optional
-            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'recall', 'fallout', 'miss', 'accuracy',
-            'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
+            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'average_precision', 'precision', 'recall', 'fallout',
+            'miss', 'accuracy', 'f_score', 'eval_time' or 'edge_embed_method'. Default is 'auroc'.
 
         Examples
         --------
@@ -259,8 +260,8 @@ class Scoresheet:
         filename : string
             A file where to store the results.
         metric : string, optional
-            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'recall', 'fallout', 'miss', 'accuracy',
-            'f_score' or 'eval_time'. Default is 'auroc'.
+            Can be one of 'tn', 'fp', 'fn', 'tp', 'auroc', 'average_precision', 'precision', 'recall', 'fallout',
+            'miss', 'accuracy', 'f_score' or 'eval_time'. Default is 'auroc'.
         """
         header = '\n\nEvaluation results ({}):\n-----------------------\n'.format(metric)
         f = open(filename, 'a')
@@ -405,6 +406,7 @@ class Results(object):
     label_binarizer : string or Sklearn binary classifier, optional
         If the predictions returned by the model are not binary, this parameter indicates how these binary
         predictions should be computed in order to be able to provide metrics such as the confusion matrix.
+        By default, the method binarizes the predictions such that their accuracy is maximised.
         Any Sklearn binary classifier can be used or the keyword 'median' which will used the prediction medians
         as binarization thresholds. Default is LogisticRegression(solver='liblinear')
 
@@ -481,6 +483,18 @@ class Results(object):
                 if test_pred is not None:
                     th2 = np.median(test_pred)
                     test_bin = np.where(test_pred >= th2, 1, 0)
+            elif self.label_binarizer == 'prop':
+                num_zeros = int(len(train_labels) - sum(train_labels))
+                train_bin = np.ones(len(train_labels))
+                argsrt = np.argsort(train_pred)
+                train_bin[argsrt[:num_zeros]] = 0
+                if test_pred is not None:
+                    # To avoid label leakage we assume the test data has the same proportion of pos/neg elems as train
+                    test_labels = np.array(test_labels)
+                    num_zeros = int((num_zeros / len(train_labels)) * len(test_labels))
+                    test_bin = np.ones(len(test_labels))
+                    argsrt = np.argsort(test_pred)
+                    test_bin[argsrt[:num_zeros]] = 0
             else:
                 try:
                     # Compute the binarized predictions
@@ -648,8 +662,8 @@ class Results(object):
     def get_all(self, results='auto', precatk_vals=None):
         """
         Returns the names of all performance metrics that can be computed from train or test predictions and their
-        associated values. These metrics are: 'tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'precisionatk', 'recall',
-        'fallout', 'miss', 'accuracy' and 'f_score'.
+        associated values. These metrics are: 'tn', 'fp', 'fn', 'tp', 'auroc', 'average_precision', 'precision',
+        'precisionatk', 'recall', 'fallout', 'miss', 'accuracy' and 'f_score'.
 
         Parameters
         ----------
@@ -679,10 +693,11 @@ class Results(object):
                 scores = self.train_scores
 
         # Add the available scores
-        metric_names = ['tn', 'fp', 'fn', 'tp', 'auroc', 'precision', 'recall',
+        metric_names = ['tn', 'fp', 'fn', 'tp', 'auroc', 'average_precision', 'precision', 'recall',
                         'fallout', 'miss', 'accuracy', 'f_score']
-        metric_vals = [scores.tn, scores.fp, scores.fn, scores.tp, scores.auroc(), scores.precision(), scores.recall(),
-                       scores.fallout(), scores.miss(), scores.accuracy(), scores.f_score()]
+        metric_vals = [scores.tn, scores.fp, scores.fn, scores.tp, scores.auroc(), scores.average_precision(),
+                       scores.precision(), scores.recall(), scores.fallout(), scores.miss(), scores.accuracy(),
+                       scores.f_score()]
 
         # Add precision at k values
         if precatk_vals is not None:
@@ -812,6 +827,17 @@ class Scores(object):
         aux = list(zip(*self._sorted))[0]
         rel = sum(aux[:MAX])
         return (1.0 * rel) / k if k != 0 else float('NaN')
+
+    def average_precision(self):
+        """
+        Computes the average precision score.
+
+        Returns
+        -------
+        avgprec : float
+            The average precision score.
+        """
+        return average_precision_score(self.y_true, self.y_pred)
 
     def recall(self):
         """

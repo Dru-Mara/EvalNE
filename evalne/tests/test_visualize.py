@@ -6,6 +6,8 @@
 
 from __future__ import division
 
+import pickle
+import pandas as pd
 import numpy as np
 
 from evalne.utils.viz_utils import *
@@ -51,5 +53,12 @@ def test():
     plot_graph2d(g, emb=emb[:, 0:2])
 
 
+def test_parallel_coord():
+    features = ['eval_time', 'auroc']
+    scoresheet = pickle.load(open('data/test.pkl', 'rb'))
+    parallel_coord(scoresheet, features, class_col='methods')
+
+
 if __name__ == "__main__":
     test()
+    test_parallel_coord()

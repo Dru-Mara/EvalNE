@@ -1,6 +1,31 @@
 Release Log
 ===========
 
+EvalNE v0.3.4
+-------------
+
+Release date: 05 Dec 2022
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update.
+- Docstring improvements affecting some classes and functions.
+- Improved Readme.md and docs files.
+
+New features
+~~~~~~~~~~~~
+- Included a bash script to control the number of threads used by numpy during execution.
+- Included a new label binarization method ('prop') which binarizes predictions based on the number of positive/negative instances in the train data.
+- The library now logs the logistic regression coefficients per method when LR or LRCV are used.
+- Included a new performance metric, average precision for the LP, SP, and NR tasks.
+- Parameter checks in the EvalSetup class for .ini configuration files can now be turned on or off. 
+- New parallel coordinates plot has been added to visualize method performance from output pickle files. 
+
+Miscelaneous
+~~~~~~~~~~~~
+- Input type errors are now catched and logged and no longer cause the evaluation to crash.
+
+
 EvalNE v0.3.3
 -------------
 
@@ -13,7 +38,6 @@ Documentation
 - Docstring examples included for all important classes and low level functions.
 - Improved variable descriptions in conf.ini.
 - Improved Readme.md and docs files.
-
 
 New features
 ~~~~~~~~~~~~

@@ -1,3 +1,10 @@
 *.pyc
 .idea/
 **/__pycache__/
+*.egg-info/
+/build
+/dist
+/venv
+/venv2
+/methods
+/data

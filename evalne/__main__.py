@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import time
+import pickle
 import numpy as np
 
 from datetime import datetime
@@ -21,6 +22,8 @@ from evalne.evaluation.pipeline import EvalSetup
 from evalne.evaluation.score import Scoresheet
 from evalne.utils import preprocess as pp
 from evalne.utils import util
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegressionCV
 
 
 def main():
@@ -189,9 +192,9 @@ def evaluate(setup):
     print('Average edge split times per dataset:')
     print(setup.names)
     print(np.array(edge_split_time).reshape(-1, repeats).mean(axis=1))
-    # if setup.task != 'nc':
-    #     print('Coefficients of LP model ({}) for each NE method:'.format(setup.lp_model))
-    #     print(lp_coef)
+    if setup.task != 'nc' and (isinstance(setup.lp_model, LogisticRegression) or
+                               isinstance(setup.lp_model, LogisticRegressionCV)):
+        pickle.dump(lp_coef, open(os.path.join(outpath, 'lp_model_coefficients.pkl'), "wb"))
     logging.info('Evaluation end\n\n')
 
 
@@ -254,7 +257,7 @@ def eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
                 if setup.curves is not None:
                     result.plot(filename=os.path.join(nw_outpath, '{}_rep_{}'.format(result.method, repeat)),
                                 curve=setup.curves)
-        except (MemoryError, AttributeError, util.TimeoutExpired) as e:                                            # ADD TypeError here
+        except (MemoryError, AttributeError, TypeError, util.TimeoutExpired) as e:
             logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                               .format(method, setup.names[i]))
 
@@ -292,8 +295,9 @@ def eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):
                                                write_dir=setup.write_dir_other[j], timeout=setup.timeout,
                                                verbose=setup.verbose)
                     # Store LP model coefficients
-                    # if setup.embtype_other[j] != 'e2e':
-                    #    lp_coef.update({setup.names_other[j]: nee.lp_model.coef_})
+                    if setup.embtype_other[j] != 'e2e' and (isinstance(setup.lp_model, LogisticRegression) or
+                                                            isinstance(setup.lp_model, LogisticRegressionCV)):
+                        lp_coef.update({setup.names_other[j]: nee.lp_model.coef_})
 
                     # Generate plots if necessary
                     if setup.curves is not None:
@@ -304,7 +308,7 @@ def eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):
                 scoresheet_tr.log_results(results)
                 scoresheet.log_results(results)
 
-            except (MemoryError, ValueError, IOError, util.TimeoutExpired) as e:
+            except (MemoryError, ValueError, IOError, TypeError, util.TimeoutExpired) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_other[j], setup.names[i]))
 
@@ -335,7 +339,9 @@ def eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):
                                                maximize=setup.maximize, write_weights=False, write_dir=True,
                                                timeout=setup.timeout, verbose=setup.verbose)
                     # Store LP model coefficients
-                    # lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
+                    if (isinstance(setup.lp_model, LogisticRegression) or
+                       isinstance(setup.lp_model, LogisticRegressionCV)):
+                        lp_coef.update({setup.names_opne[j]: nee.lp_model.coef_})
 
                     # Generate plots if necessary
                     if setup.curves is not None:
@@ -346,7 +352,7 @@ def eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):
                 scoresheet_tr.log_results(results)
                 scoresheet.log_results(results)
 
-            except (MemoryError, ValueError, IOError, util.TimeoutExpired) as e:
+            except (MemoryError, ValueError, IOError, TypeError, util.TimeoutExpired) as e:
                 logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                                   .format(setup.names_opne[j], setup.names[i]))
 
