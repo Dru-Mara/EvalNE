@@ -412,7 +412,7 @@ If you have found EvaNE useful in your research, please consider giving the repo
 and citing our [paper](https://www.sciencedirect.com/science/article/pii/S2352711022000139):
 
 ```bibtex
-    @article{MARA2022100997,
+    @article{MARA2022evalne,
       title = {EvalNE: A framework for network embedding evaluation},
       author = {Alexandru Mara and Jefrey Lijffijt and Tijl {De Bie}},
       journal = {SoftwareX},
