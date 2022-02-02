@@ -413,14 +413,14 @@ and citing our [paper](https://www.sciencedirect.com/science/article/pii/S235271
 
 ```bibtex
     @article{MARA2022evalne,
-      title = {EvalNE: A framework for network embedding evaluation},
+      title = {EvalNE: A Framework for Network Embedding Evaluation},
       author = {Alexandru Mara and Jefrey Lijffijt and Tijl {De Bie}},
       journal = {SoftwareX},
       volume = {17},
-      pages = {100997},
+      pages = {},
       year = {2022},
-      issn = {2352-7110},
-      doi = {https://doi.org/10.1016/j.softx.2022.100997},
+      issn = {100997},
+      doi = {10.1016/j.softx.2022.100997},
       url = {https://www.sciencedirect.com/science/article/pii/S2352711022000139}
     }
 ```
