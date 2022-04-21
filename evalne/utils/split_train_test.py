@@ -9,20 +9,17 @@
 # (3) node-pair sampling: randomly sampling a subset of all possible node pairs including edges and non-edges.
 # Additional functions for computing a spanning tree of a given graph are provided.
 
-from __future__ import division
-from __future__ import print_function
-
 import os
 import random
 import warnings
-
-import networkx as nx
 import numpy as np
+import networkx as nx
+
+from joblib import Parallel, delayed
 from scipy.sparse import csr_matrix
 from scipy.sparse import tril
 from scipy.sparse import triu
 from scipy.sparse.csgraph import depth_first_tree
-from sklearn.externals.joblib import Parallel, delayed
 
 from evalne.utils import preprocess as pp
 
@@ -77,7 +74,7 @@ def split_train_test(G, train_frac=0.51, st_alg='wilson'):
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
     if train_frac == 1.0:
-        return set(G.edges()), set()
+        return set(G.edges), set()
 
     # Create a set of all edges in G
     E = set(G.edges)
@@ -158,13 +155,13 @@ def quick_split(G, train_frac=0.51):
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
     if train_frac == 1.0:
-        return set(G.edges()), set()
+        return set(G.edges), set()
 
     # Get Adj matrix
     if nx.is_directed(G):
-        a = nx.adj_matrix(G)
+        a = nx.adjacency_matrix(G, nodelist=range(len(G.nodes)))
     else:
-        a = triu(nx.adj_matrix(G), k=1)
+        a = triu(nx.adjacency_matrix(G, nodelist=range(len(G.nodes))), k=1)
 
     # Compute initial statistics and linear indx of nonzeros
     n = a.shape[0]
@@ -231,7 +228,7 @@ def naive_split_train_test(G, train_frac=0.51):
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
     if train_frac == 1.0:
-        return set(G.edges()), set()
+        return set(G.edges), set()
 
     # Is directed
     directed = G.is_directed()
@@ -318,7 +315,7 @@ def rand_split_train_test(G, train_frac=0.51):
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
     if train_frac == 1.0:
-        return set(G.edges()), set()
+        return set(G.edges), set()
 
     # Create a set of all edges in G
     E = set(G.edges)
@@ -338,11 +335,11 @@ def rand_split_train_test(G, train_frac=0.51):
     if G.is_directed():
         H = nx.DiGraph()
         H.add_edges_from(ptr_edges)
-        maincc = max(nx.weakly_connected_component_subgraphs(H), key=len)
+        maincc = G.subgraph(max(nx.weakly_connected_components(H), key=len)).copy()
     else:
         H = nx.Graph()
         H.add_edges_from(ptr_edges)
-        maincc = max(nx.connected_component_subgraphs(H), key=len)
+        maincc = G.subgraph(max(nx.connected_components(H), key=len)).copy()
 
     # The edges in the mainCC graph are the actual train edges
     train_E = set(maincc.edges)
@@ -398,13 +395,13 @@ def timestamp_split(G, train_frac=0.51):
     if train_frac <= 0.0 or train_frac > 1.0:
         raise ValueError('The train_frac parameter needs to be in range: (0.0, 1.0]')
     if train_frac == 1.0:
-        return set(G.edges()), set()
+        return set(G.edges), set()
 
     # Get Adj matrix
     if nx.is_directed(G):
-        a = nx.adj_matrix(G)
+        a = nx.adjacency_matrix(G, nodelist=range(len(G.nodes)))
     else:
-        a = triu(nx.adj_matrix(G), k=1)
+        a = triu(nx.adj_matrix(G, nodelist=range(len(G.nodes))), k=1)
 
     # Argsort data and compute the idx where we split train from test
     ordered = np.argsort(a.data)
@@ -706,7 +703,7 @@ def quick_nonedges(G, train_frac=0.51, fe_ratio=1.0):
         If more non-edges than existing in the graph are required.
     """
     # fe_ration can be any float or keyword 'prop'
-    a = nx.adj_matrix(G)
+    a = nx.adjacency_matrix(G, nodelist=range(len(G.nodes)))
     n = a.shape[0]
     density = a.nnz / n ** 2
     if fe_ratio == 'prop':

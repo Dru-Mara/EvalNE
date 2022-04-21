@@ -11,13 +11,10 @@
 
 # TODO: the apply_prediction method should probably return a numpy array (like edge_embeddings does) rather than a list.
 
-from __future__ import division
-
 import math
 import random
-
-import networkx as nx
 import numpy as np
+import networkx as nx
 
 __all__ = ['common_neighbours',
            'jaccard_coefficient',

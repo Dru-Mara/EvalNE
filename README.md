@@ -133,7 +133,7 @@ When used as an API, EvalNE provides functions to:
 
 ## Instalation ## 
 
-The library has been tested on Python 2.7 and Python 3.6.
+The latest version of the library (v0.4.0) has been tested on **Python 3.8**.
 
 EvalNE depends on the following packages:
 * Numpy
@@ -143,26 +143,18 @@ EvalNE depends on the following packages:
 * NetworkX
 * Pandas
 * tqdm
+* kiwisolver
 
 Before installing EvalNE make sure that `pip` and `python-tk` packages are installed 
 on your system, this can be done by running:
 ```bash
-# Python 2
-sudo apt-get install python-pip
-sudo apt-get install python-tk
-
-# Python 3
 sudo apt-get install python3-pip
 sudo apt-get install python3-tk
 ```
 
 **Option 1:** Install the library using pip:
 ```bash
-# Python 2
 pip install evalne
-
-# Python 3
-pip3 install evalne
 ```
 
 **Option 2:** Cloning the code and installing:
@@ -173,28 +165,21 @@ pip3 install evalne
     cd EvalNE
     ```
 
-- Download strict library dependencies and install:
+- Download dependencies and install the library:
     ```bash
-    # Python 2
-    pip install -r requirements.txt
+    # System-wide install
     sudo python setup.py install
-    
-    # Python 3
-    pip3 install -r requirements.txt
-    sudo python3 setup.py install
+  
+    # Alternative install for a single user
+    python setup.py install --user
     ```
 
 Check the installation by running `simple_example.py` or `functions_example.py` as shown below.
 If you have installed the package using pip, you will need to download the examples folder from
 the github repository first.
 ```bash
-# Python 2
 cd examples/
 python simple_example.py
-
-# Python 3
-cd examples/
-python3 simple_example.py
 ```
 
 **NOTE:** In order to run the `evaluator_example.py` script, the 
@@ -364,7 +349,7 @@ transformed into e.g. pandas dataframes or latex tables.
 
 ### Parallelization ###
 
-Due to its efficiency, EvalNE makes extensive use of numpy for most operations. Numpy, in turn, 
+EvalNE makes extensive use of numpy for most operations. Numpy, in turn, 
 uses other libraries such as OpenMP, MKL, etc., to provide parallelization. In order to allow for 
 certain control on the maximum number of threads used during execution, we include a simple bash 
 script (`set_numpy_threads.sh`). The script located inside the `scripts` folder can be given execution
@@ -412,12 +397,16 @@ If you have found EvaNE useful in your research, please consider giving the repo
 and citing our [arXiv paper](https://arxiv.org/abs/1901.09691):
 
 ```bibtex
-    @misc{Mara2019,
+    @article{MARA2022evalne,
+      title = {EvalNE: A Framework for Network Embedding Evaluation},
       author = {Alexandru Mara and Jefrey Lijffijt and Tijl De Bie},
-      title = {EvalNE: A Framework for Evaluating Network Embeddings on Link Prediction},
-      year = {2019},
-      archivePrefix = {arXiv},
-      eprint = {1901.09691}
+      journal = {SoftwareX},
+      volume = {17},
+      pages = {},
+      year = {2022},
+      issn = {100997},
+      doi = {10.1016/j.softx.2022.100997},
+      url = {https://www.sciencedirect.com/science/article/pii/S2352711022000139}
     }
 ```
 

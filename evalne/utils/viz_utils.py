@@ -8,10 +8,9 @@
 # T-SNE is applied to embeddings with more than two dimensions in order to plot them in a 2d space.
 
 import os
-
 import pandas as pd
-import matplotlib as mpl
 import networkx as nx
+import matplotlib as mpl
 from sklearn.manifold import TSNE
 
 if os.environ.get('DISPLAY', '') == '':
@@ -92,8 +91,8 @@ def plot_graph2d(G, emb=None, labels=None, colors=None, filename=None):
         emb = nx.spring_layout(G)
 
     # Plot nodes and edges
-    nx.draw_networkx_nodes(G, emb, width=0.1, node_size=100, arrows=False, alpha=0.6, node_color=colors)
-    nx.draw_networkx_edges(G, emb, width=1.0, alpha=0.1)
+    nx.draw_networkx_nodes(G, emb, node_size=100, alpha=0.6, node_color=colors)
+    nx.draw_networkx_edges(G, emb, width=1.0, arrows=False, alpha=0.1)
 
     # Plot the labels if provided
     if labels is not None:

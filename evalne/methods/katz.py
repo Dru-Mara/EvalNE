@@ -8,8 +8,6 @@
 # complete graph using the adjacency matrix. The second, computes the approximated Katz score for each input node-pair.
 # Only undirected Graphs and Digraphs are supported.
 
-from __future__ import division
-
 import networkx as nx
 import numpy as np
 
@@ -42,10 +40,10 @@ class Katz(object):
     def _fit(self):
 
         # Version using sparse matrices
-        # adj = nx.adjacency_matrix(self._G)
+        # adj = nx.adjacency_matrix(self._G, nodelist=range(len(self._G.nodes)))
         # ident = sparse.identity(len(self._G.nodes)).tocsc()
         # sim = inv(ident - adj.multiply(self.beta).T) - ident
-        # adj = nx.adjacency_matrix(self._G)
+        # adj = nx.adjacency_matrix(self._G, nodelist=range(len(self._G.nodes)))
         # aux = adj.multiply(-self.beta).T
         # aux.setdiag(1+aux.diagonal(), k=0)
         # sim = inv(aux)
@@ -54,7 +52,7 @@ class Katz(object):
         # print(adj.nnz)
 
         # Version using dense matrices
-        adj = nx.adjacency_matrix(self._G)
+        adj = nx.adjacency_matrix(self._G, nodelist=range(len(self._G.nodes)))
         aux = adj.T.multiply(-self.beta).todense()
         np.fill_diagonal(aux, 1+aux.diagonal())
         sim = np.linalg.inv(aux)

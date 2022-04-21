@@ -7,15 +7,14 @@
 # This file contains methods and classes for reading and parsing configuration files. These files describe the entire
 # evaluation pipeline in a set of variables called options organized in sections.
 
-from __future__ import division
-
 import os
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.model_selection import GridSearchCV
+from configparser import ConfigParser
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegressionCV
 
 from evalne.utils import util
 
@@ -34,12 +33,6 @@ class EvalSetup(object):
     """
 
     def __init__(self, configpath, run_checks=True):
-        # Import config parser
-        try:
-            from ConfigParser import ConfigParser
-        except ImportError:
-            from configparser import ConfigParser
-
         # Read the configuration file
         config = ConfigParser()
         config.read(configpath)
@@ -63,6 +56,9 @@ class EvalSetup(object):
         ValueError
             If any of the required options for the given task are not specified.
         """
+        if self.__getattribute__('task') == 'lp' or self.__getattribute__('task') == 'sp':
+            if self.__getattribute__('lp_num_edge_splits') == 0:
+                raise ValueError('At least one experiment repeat must be run!')
         task = self.__getattribute__('task')
         if task not in ['lp', 'nc', 'nr', 'sp']:
             raise ValueError('Incorrect value for `TASK`! Accepted values are: `lp`, `nc`, `nr` or `sp`.')
@@ -89,6 +85,8 @@ class EvalSetup(object):
         ValueError
             If the input paths do not exist or if entries for any network are missing.
         """
+        if self.__getattribute__('names') is None:
+            raise ValueError('At least one network is required for evaluation!')
         numnws = len(self.__getattribute__('names'))
         if self.__getattribute__('task') == 'nc' and self.__getattribute__('labelpaths') is None:
             raise ValueError('For NC tasks `LABELPATHS` must be specified for each network!')
@@ -319,7 +317,7 @@ class EvalSetup(object):
     @property
     def lp_num_edge_splits(self):
         """Returns an int indicating the number of repetitions for experiment with different train/test edge splits.
-        Required if task is 'lp', 'sp' or 'nr'. For 'nc' this value must be 1."""
+        Required if task is 'lp' or 'sp'. For 'nr' and 'nc' this value must be 1."""
         return self._config.getint('GENERAL', 'lp_num_edge_splits')
 
     @property

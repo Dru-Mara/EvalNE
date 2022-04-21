@@ -6,27 +6,25 @@
 
 # TODO: Implement NC as link prediction for node-pair embedding and end to end predictors.
 
-from __future__ import division
-
-import itertools
-import logging
 import os
 import re
 import time
-
-import networkx as nx
+import logging
+import itertools
 import numpy as np
+import networkx as nx
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LogisticRegressionCV
 
-from evalne.evaluation import edge_embeddings
 from evalne.evaluation import score
 from evalne.evaluation import split
+from evalne.evaluation import edge_embeddings
 from evalne.methods import katz
 from evalne.methods import similarity as sim
+from evalne.utils import util
 from evalne.utils import preprocess as pp
 from evalne.utils import split_train_test as stt
-from evalne.utils import util
 
 
 def _eval_katz(q, method, traintest_split):

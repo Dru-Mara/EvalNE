@@ -4,17 +4,17 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-import logging
 import os
-import random
 import time
 import pickle
+import random
+import logging
 import numpy as np
 
-from datetime import datetime
-from datetime import timedelta
 from sys import argv
 from tqdm import tqdm
+from datetime import datetime
+from datetime import timedelta
 
 from evalne.evaluation.evaluator import *
 from evalne.evaluation.split import *
@@ -161,7 +161,7 @@ def evaluate(setup):
 
             # Evaluate baselines
             if setup.lp_baselines is not None and setup.task != 'nc':
-                eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
+                lp_coef = eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
 
             # Evaluate other NE methods
             if setup.methods_opne is not None or setup.methods_other is not None:
@@ -233,6 +233,7 @@ def eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
     """
     print('Evaluating baselines...')
 
+    lp_coef = dict()
     for method in setup.lp_baselines:
         try:
             # Evaluate baseline methods
@@ -260,6 +261,7 @@ def eval_baselines(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath)
         except (MemoryError, AttributeError, TypeError, util.TimeoutExpired) as e:
             logging.exception('Exception occurred while evaluating method `{}` on `{}` network.'
                               .format(method, setup.names[i]))
+    return lp_coef
 
 
 def eval_other(setup, nee, i, scoresheet, scoresheet_tr, repeat, nw_outpath):

@@ -1,0 +1,10 @@
+# Undirected graph
+# Num. nodes: 703
+# Num. edges: 2584
+# Num. connected components: 1
+# Num. nodes in largest CC: 703 (100.0 % of total)
+# Num. edges in largest CC: 2584 (100.0 % of total)
+# Avg. node degree: 7.351351351351352
+# Num. degree 1 nodes: 184
+# Num. degree 2 nodes: 102
+# Num. self loops: 0

@@ -9,16 +9,10 @@ python setup.py install --user
 """
 
 from setuptools import setup, find_packages
-import sys
-
-if sys.version_info[0] == 2:
-    alternative = 'kiwisolver==1.1.0'
-else:
-    alternative = 'kiwisolver==1.3.1'
 
 setup(
     name="evalne",
-    version='0.3.4',
+    version='0.4.0',
     url="https://github.com/Dru-Mara/EvalNE",
     license="MIT License",
     author="Alexandru Mara",
@@ -29,26 +23,26 @@ setup(
     keywords='evaluation embedding link-prediction sign-prediction node-classification network-reconstruction '
              'networks graphs visualization',
     packages=find_packages(),
-    python_requires='>=2.6, <3.7',
+    python_requires='<3.7',
     zip_safe=False,
     tests_require=["pytest", "pytest-cov"],
     install_requires=[
-        'numpy==1.15.4',
-        'scikit-learn==0.19.0',
-        'networkx==2.2',
-        'scipy==0.19.1',
-        'matplotlib==2.2.4',
-        'pandas==0.24.2',
-        'pyparsing==2.4.7',
+        'numpy',
+        'scikit-learn',
+        'networkx',
+        'scipy',
+        'matplotlib',
+        'pandas',
+        'pyparsing',
         'tqdm',
-        alternative
+        'kiwisolver',
+        'joblib'
     ],
     classifiers=[
         "Intended Audience :: Science/Research",
         "Intended Audience :: Developers",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Software Development",
-        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",

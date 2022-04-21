@@ -4,11 +4,9 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-from __future__ import division
-
 import pickle
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from evalne.utils.viz_utils import *
 
@@ -61,4 +59,4 @@ def test_parallel_coord():
 
 if __name__ == "__main__":
     test()
-    test_parallel_coord()
+    #test_parallel_coord()

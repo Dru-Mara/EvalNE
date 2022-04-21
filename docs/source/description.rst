@@ -16,9 +16,9 @@ EvalNE has been designed as a pipeline of interconnected and interchangeable bui
 
     The hyper-parameter tuning and evaluation setup functionalities are omitted in this diagram.
 
-A more detailed description of the library features for the practitioner and for the methodologist are presented below. Further information can be found in our arXiv paper_.
+A more detailed description of the library features for the practitioner and for the methodologist are presented below. Further information can be found in our paper_.
 
-.. _paper: https://arxiv.org/abs/1901.09691
+.. _paper: https://www.sciencedirect.com/science/article/pii/S2352711022000139
 
 For Methodologists
 ------------------
