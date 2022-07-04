@@ -131,7 +131,7 @@ When used as an API, EvalNE provides functions to:
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
-## Instalation ## 
+## Installation ## 
 
 The latest version of the library (v0.4.0) has been tested on **Python 3.8**.
 
