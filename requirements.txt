@@ -1,0 +1,10 @@
+numpy
+scikit-learn
+networkx
+scipy
+matplotlib
+pandas
+pyparsing
+tqdm
+kiwisolver
+joblib
