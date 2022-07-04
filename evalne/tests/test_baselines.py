@@ -4,12 +4,10 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-from __future__ import division
-
 import random
-from time import time
-
 import numpy as np
+
+from time import time
 
 from evalne.evaluation import evaluator
 from evalne.evaluation import score
@@ -89,6 +87,7 @@ def run_test():
     # Generate one train/test split with all edges in train set
     start = time()
     traintest_split = split.EvalSplit()
+    # traintest_split.read_splits('./', 0)
     traintest_split.compute_splits(G, train_frac=0.9)
     end = time() - start
     print("\nSplits computed in {} sec".format(end))

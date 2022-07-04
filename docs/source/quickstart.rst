@@ -184,3 +184,21 @@ execution has failed, or validation scores. The second one encapsulates all the 
 results as a pickle file. This file can be conveniently loaded and the results can be 
 transformed into e.g. pandas dataframes or latex tables.
 
+Parallelization
+---------------
+
+EvalNE makes extensive use of numpy for most operations. Numpy, in turn, 
+uses other libraries such as OpenMP, MKL, etc., to provide parallelization. In order to allow for 
+certain control on the maximum number of threads used during execution, we include a simple bash 
+script (`set_numpy_threads.sh`). The script located inside the `scripts` folder can be given execution permissions and run as follows:
+
+.. code-block:: console
+
+    # Give execution permissions:
+    chmod +x set_numpy_threads.sh
+
+    # Run the script:
+    source set_numpy_threads.sh
+    # The script will then ask for the maximum number of threads to use.
+
+

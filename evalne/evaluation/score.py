@@ -7,27 +7,22 @@
 # This file contains methods and classes that simplify the management and storage of evaluation results, both for
 # individual methods as well as complete evaluations.
 
-from __future__ import division
-
 import os
+import pickle
 import warnings
 import numpy as np
 import pandas as pd
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-from collections import OrderedDict
 from collections import Counter
-from sklearn.linear_model import LogisticRegression
+from collections import OrderedDict
+from sklearn.metrics import f1_score
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_curve
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import roc_curve
-from sklearn.metrics import f1_score
 from sklearn.metrics import average_precision_score
+from sklearn.linear_model import LogisticRegression
 
 from evalne.utils import viz_utils as viz
 

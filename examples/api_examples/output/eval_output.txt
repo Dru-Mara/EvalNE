@@ -1,0 +1,15 @@
+
+
+Evaluation results (auroc):
+-----------------------
+	test_network
+common_neighbours	0.8034
+jaccard_coefficient	0.711
+cosine_similarity	0.7074
+lhn_index	0.6906
+topological_overlap	0.7312
+adamic_adar_index	0.8149
+resource_allocation_index	0.8146
+preferential_attachment	0.9344
+random_prediction	0.5194
+all_baselines	0.9345

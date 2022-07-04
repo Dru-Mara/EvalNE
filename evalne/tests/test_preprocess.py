@@ -4,11 +4,8 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-from __future__ import division
-
-import random
 import time
-
+import random
 import networkx as nx
 
 from evalne.utils import preprocess as pp
@@ -64,7 +61,7 @@ def test_split():
     test_name = "network.edgelist"
     subgraph_size = 400
     train_frac = 0.5
-    directed = True
+    directed = False
 
     # Load a graph
     G = pp.load_graph(dataset_path + test_name, delimiter=",", comments='#', directed=directed)

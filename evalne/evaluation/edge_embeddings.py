@@ -6,8 +6,6 @@
 
 # This file provides implementations of several operators for computing node-pair embeddings from node feature vectors.
 
-from __future__ import division
-
 import numpy as np
 
 

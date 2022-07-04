@@ -9,12 +9,10 @@
 # TODO v0.4.0: Change naming from train_edges/test_edges to train_data/test_data.
 # TODO v0.4.0: Change naming from train_E/train_E_false to train_pos/train_neg.
 
-from __future__ import division
+import numpy as np
+import networkx as nx
 
 from abc import abstractmethod
-
-import networkx as nx
-import numpy as np
 
 from evalne.utils import preprocess as pp
 from evalne.utils import split_train_test as stt
@@ -358,7 +356,8 @@ class NREvalSplit(BaseEvalSplit):
             If the edge split algorithm is unknown.
         """
         # Sample the required number of node pairs from the graph
-        train_E, train_E_false = stt.random_edge_sample(nx.adj_matrix(G), samp_frac, nx.is_directed(G))
+        train_E, train_E_false = stt.random_edge_sample(nx.adjacency_matrix(G, nodelist=range(len(G.nodes))),
+                                                        samp_frac, nx.is_directed(G))
 
         # Raise an error if no edges were selected while sampling matrix entries (both edges and non-edges are required)
         if len(train_E) == 0:
@@ -519,7 +518,7 @@ class SPEvalSplit(BaseEvalSplit):
         test_E = np.array(list(test_E))
 
         # Get the labels of train and test
-        a = nx.adj_matrix(G)
+        a = nx.adjacency_matrix(G, nodelist=range(len(G.nodes)))
         tr_labels = np.ravel(a[train_E[:, 0], train_E[:, 1]])
         te_labels = np.ravel(a[test_E[:, 0], test_E[:, 1]])
 

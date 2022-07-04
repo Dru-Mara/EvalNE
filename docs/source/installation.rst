@@ -1,7 +1,7 @@
 Installation
 ============
 
-The library has been tested on Python 2.7 and Python 3.6. The supported platforms
+The library has been tested on Python 3.8. The supported platforms
 include Linux, Mac OS and Microsoft Windows.
 
 EvalNE depends on the following open-source packages:
@@ -12,6 +12,7 @@ EvalNE depends on the following open-source packages:
    * NetworkX
    * Pandas
    * tqdm
+   * kiwisolver
 
 Linux/MacOS
 -----------
@@ -21,11 +22,6 @@ on your system, this can be done by running:
 
 .. code-block:: console
 
-    # Python 2
-    foo@bar:~$ sudo apt-get install python-pip
-    foo@bar:~$ sudo apt-get install python-tk
-
-    # Python 3
     foo@bar:~$ sudo apt-get install python3-pip
     foo@bar:~$ sudo apt-get install python3-tk
 
@@ -33,11 +29,7 @@ on your system, this can be done by running:
 
 .. code-block:: console
 
-    # Python 2
     foo@bar:~$ pip install evalne
-
-    # Python 3
-    foo@bar:~$ pip3 install evalne
 
 **Option 2:** Cloning the code and installing
 
@@ -48,17 +40,22 @@ on your system, this can be done by running:
 	    foo@bar:~$ git clone https://github.com/Dru-Mara/EvalNE.git
 	    foo@bar:~$ cd EvalNE
 
-	- Download the required dependencies and install the library:
+	- Install the library:
 
 	.. code-block:: console
 
-	    # Python 2
+	    # System-wide install
+	    foo@bar:~$ sudo python setup.py install
+	    
+	    # Alterntive single user install
+	    foo@bar:~$ python setup.py install --user	    
+	    
+	- Alternatively, one can first download the required dependencies and then install:
+
+	.. code-block:: console
+
 	    foo@bar:~$ pip install -r requirements.txt
 	    foo@bar:~$ sudo python setup.py install
-
-	    # Python 3
-	    foo@bar:~$ pip3 install -r requirements.txt
-	    foo@bar:~$ sudo python3 setup.py install
 
 Check the installation by running `simple_example.py` or `functions_example.py` as shown below.
 If you have installed the package using pip, you will need to download the examples folder from
@@ -66,13 +63,8 @@ the github repository first.
 
 .. code-block:: console
 
-    # Python 2
     foo@bar:~$ cd examples/
     foo@bar:~$ python simple_example.py
-    
-    # Python 3
-    foo@bar:~$ cd examples/
-    foo@bar:~$ python3 simple_example.py
 
 .. note::
 

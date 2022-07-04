@@ -8,15 +8,11 @@
 # (2) preprocess graphs for the specific task of graph embedding. NetworkX graphs and digraphs are supported,
 # multi-graphs are not.
 
-from __future__ import division
-from __future__ import print_function
-
 import os
-import collections
 import logging
-
-import networkx as nx
+import collections
 import numpy as np
+import networkx as nx
 
 
 ##################################################
@@ -437,14 +433,14 @@ def prep_graph(G, relabel=True, del_self_loops=True, maincc=True):
     """
     # Remove self loops
     if del_self_loops:
-        G.remove_edges_from(G.selfloop_edges())
+        G.remove_edges_from(nx.selfloop_edges(G))
 
     # Restrict graph to its main connected component
     if maincc:
         if G.is_directed():
-            Gcc = max(nx.weakly_connected_component_subgraphs(G), key=len)
+            Gcc = G.subgraph(max(nx.weakly_connected_components(G), key=len)).copy()
         else:
-            Gcc = max(nx.connected_component_subgraphs(G), key=len)
+            Gcc = G.subgraph(max(nx.connected_components(G), key=len)).copy()
     else:
         Gcc = G
 
@@ -674,7 +670,7 @@ def get_stats(G, output_path=None, all_stats=False):
         # Print some basic info about the graph
         if G.is_directed():
             num_ccs = nx.number_weakly_connected_components(G)
-            Gcc = max(nx.weakly_connected_component_subgraphs(G), key=len)
+            Gcc = G.subgraph(max(nx.weakly_connected_components(G), key=len)).copy()
             Ncc = len(Gcc.nodes)
             Mcc = len(Gcc.edges)
             print("Directed graph")
@@ -685,7 +681,7 @@ def get_stats(G, output_path=None, all_stats=False):
             print("Num. edges in largest weakly CC: {} ({} % of total)".format(Mcc, Mcc * 100.0 / M))
         else:
             num_ccs = nx.number_connected_components(G)
-            Gcc = max(nx.connected_component_subgraphs(G), key=len)
+            Gcc = G.subgraph(max(nx.connected_components(G), key=len)).copy()
             Ncc = len(Gcc.nodes)
             Mcc = len(Gcc.edges)
             print("Undirected graph")
@@ -702,14 +698,14 @@ def get_stats(G, output_path=None, all_stats=False):
         print("Avg. node degree: {}".format(avgdeg))
         print("Num. degree 1 nodes: {}".format(deg1))
         print("Num. degree 2 nodes: {}".format(deg2))
-        print("Num. self loops: {}".format(G.number_of_selfloops()))
+        print("Num. self loops: {}".format(nx.number_of_selfloops(G)))
         print("")
     else:
         # Write the info to the provided file
         f = open(output_path, 'w+b')
         if G.is_directed():
             num_ccs = nx.number_weakly_connected_components(G)
-            Gcc = max(nx.weakly_connected_component_subgraphs(G), key=len)
+            Gcc = G.subgraph(max(nx.weakly_connected_components(G), key=len)).copy()
             Ncc = len(Gcc.nodes)
             Mcc = len(Gcc.edges)
             f.write("# Directed graph".encode())
@@ -720,7 +716,7 @@ def get_stats(G, output_path=None, all_stats=False):
             f.write("\n# Num. edges in largest weakly CC: {} ({} % of total)".format(Mcc, Mcc * 100.0 / M).encode())
         else:
             num_ccs = nx.number_connected_components(G)
-            Gcc = max(nx.connected_component_subgraphs(G), key=len)
+            Gcc = G.subgraph(max(nx.connected_components(G), key=len)).copy()
             Ncc = len(Gcc.nodes)
             Mcc = len(Gcc.edges)
             f.write("# Undirected graph".encode())
@@ -737,6 +733,6 @@ def get_stats(G, output_path=None, all_stats=False):
         f.write("\n# Avg. node degree: {}".format(avgdeg).encode())
         f.write("\n# Num. degree 1 nodes: {}".format(deg1).encode())
         f.write("\n# Num. degree 2 nodes: {}".format(deg2).encode())
-        f.write("\n# Num. self loops: {}".format(G.number_of_selfloops()).encode())
+        f.write("\n# Num. self loops: {}".format(nx.number_of_selfloops(G)).encode())
         f.write("\n".encode())
         f.close()

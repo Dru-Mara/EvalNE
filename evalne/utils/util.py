@@ -7,19 +7,14 @@
 # This file provides a set of functions for importing binary classifiers from a given sting and for running command line
 # calls and python functions in independent processes with given pre-defined timeouts.
 
-from __future__ import division
-from __future__ import print_function
-
-import importlib
 import os
+import queue
 import shlex
+import importlib
+
 from subprocess import Popen
 from threading import Timer
 from multiprocessing import Process, Queue
-try:
-    import Queue as queue
-except ImportError:
-    import queue
 
 
 class TimeoutExpired(Exception):

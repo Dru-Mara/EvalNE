@@ -5,7 +5,6 @@
 # Date: 18/12/2018
 
 import timeit
-
 import numpy as np
 
 from evalne.evaluation import edge_embeddings

@@ -4,10 +4,7 @@
 # Contact: alexandru.mara@ugent.be
 # Date: 18/12/2018
 
-from __future__ import division
-
 import time
-
 import networkx as nx
 
 from evalne.utils import preprocess as pp
