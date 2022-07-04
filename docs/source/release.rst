@@ -1,6 +1,27 @@
 Release Log
 ===========
 
+EvalNE v0.4.0
+-------------
+
+Release date: 04 Jul 2022
+
+Documentation
+~~~~~~~~~~~~~
+- Release log update.
+- Docstring improvements affecting some classes and functions.
+- Improved Readme.md and docs files.
+- Improved conf.ini inline documentation.
+
+Miscellaneous
+~~~~~~~~~~~~
+- Transition to python >3.7.
+- Support for python 2 has been dropped.
+- Dependencies bumped to latest package versions including numpy and networkx.
+- Improved imports throughout the library.
+- Extended parameter checks for config files. 
+
+
 EvalNE v0.3.4
 -------------
 

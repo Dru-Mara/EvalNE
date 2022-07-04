@@ -394,12 +394,12 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 ## Citation ##
 
 If you have found EvaNE useful in your research, please consider giving the repo a star 
-and citing our [arXiv paper](https://arxiv.org/abs/1901.09691):
+and citing our [paper](https://www.sciencedirect.com/science/article/pii/S2352711022000139):
 
 ```bibtex
     @article{MARA2022evalne,
       title = {EvalNE: A Framework for Network Embedding Evaluation},
-      author = {Alexandru Mara and Jefrey Lijffijt and Tijl De Bie},
+      author = {Alexandru Mara and Jefrey Lijffijt and Tijl {De Bie}},
       journal = {SoftwareX},
       volume = {17},
       pages = {},
