@@ -57,6 +57,15 @@ embedding computation, results reporting and data visualization.
 The library can be used both as a command line tool and an API. In its current 
 version, EvalNE can evaluate unweighted directed and undirected simple networks.
 
+A Graphical User Interface based on Plotly Dash has been recently added to EvalNE. 
+The interface allows users to set up and execute EvalNE evaluations in an intuitive 
+and interactive way, monitor system resources and browse previous evaluations. Check out
+the project here -> [EvalNE-gui](https://github.com/Dru-Mara/evalne-gui).
+
+Interested in robustness evaluation? That can also be done using EvalNE! Check out the
+following project (we will port it into the main library very soon): 
+[EvalNE-robustness](https://github.com/aida-ugent/EvalNE-robustness).
+
 The library is maintained by Alexandru Mara (alexandru.mara(at)ugent.be). The full
 documentation of EvalNE is hosted by *Read the Docs* and can be found 
 [here](https://evalne.readthedocs.io/en/latest/).
